@@ -46,23 +46,51 @@ class Car(models.Model):
     year = models.IntegerField()
     price = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(max_length=20, default="available")
+    description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 class CarImage(models.Model):
     car = models.ForeignKey(Car, related_name='images', on_delete=models.CASCADE)
-    image_url = models.URLField()
+    image = models.ImageField(upload_to='car_images/', default='car_images/default.png')
 
 class Order(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PAID = "paid", "Paid"
+        CANCELLED = "cancelled", "Cancelled"
+
     buyer = models.ForeignKey(User, related_name='purchases', on_delete=models.SET_NULL, null=True)
-    car = models.ForeignKey(Car, related_name='orders', on_delete=models.CASCADE)
+    car = models.ForeignKey(Car, related_name='orders', on_delete=models.CASCADE, unique=True)
     order_date = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, default="pending")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def save(self, *args, **kwargs):
+        if self.buyer and self.car and self.buyer == self.car.seller:
+            raise ValueError("Нельзя сделать заказ на собственную машину")
+
+        if self._state.adding and self.car:
+            self.total_amount = self.car.price
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Order #{self.pk} - {self.car.VIN} ({self.status})"
+
 
 class Transaction(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
     order = models.ForeignKey(Order, related_name='transactions', on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     transaction_date = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, default="pending")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+
+    def __str__(self):
+        return f"Transaction #{self.pk} for Order {self.order_id} ({self.status})"
 
 class Review(models.Model):
     reviewer = models.ForeignKey(User, related_name='given_reviews', on_delete=models.CASCADE)

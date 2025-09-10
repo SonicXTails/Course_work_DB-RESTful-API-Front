@@ -1,10 +1,12 @@
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework import status
-from .models import *
 from .serializers import *
 from .permissions import IsAdmin
+from django.db import transaction
+from .models import *
 
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
@@ -49,11 +51,6 @@ class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAdmin]
 
-class TransactionViewSet(ModelViewSet):
-    queryset = Transaction.objects.all()
-    serializer_class = TransactionSerializer
-    permission_classes = [IsAdmin]
-
 class ReviewViewSet(ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
@@ -64,10 +61,60 @@ class AuditLogViewSet(ModelViewSet):
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdmin]
 
-class RegisterView(APIView):
-    def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            return Response({"id": user.id, "username": user.username}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class RegisterViewSet(ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
+    http_method_names = ['post']  # разрешаем только POST
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(
+            {"id": user.id, "username": user.username},
+            status=status.HTTP_201_CREATED
+        )
+
+class TransactionViewSet(ModelViewSet):
+    queryset = Transaction.objects.all()
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAdmin]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        order = serializer.validated_data['order']
+        amount = serializer.validated_data['amount']
+
+        try:
+            with transaction.atomic():
+                order = Order.objects.select_for_update().get(pk=order.pk)
+
+                if order.status == Order.Status.CANCELLED:
+                    return Response({"detail": "Нельзя провести транзакцию для отменённого заказа"}, status=400)
+
+                if order.status == Order.Status.PAID:
+                    return Response({"detail": "Заказ уже оплачен"}, status=400)
+
+                if amount != order.total_amount:
+                    transaction_instance = Transaction.objects.create(
+                        order=order,
+                        amount=amount,
+                        status=Transaction.Status.FAILED
+                    )
+                    return Response(
+                        TransactionSerializer(transaction_instance).data,
+                        status=400
+                    )
+
+                transaction_instance = serializer.save(status=Transaction.Status.COMPLETED)
+                order.status = Order.Status.PAID
+                order.save()
+
+            return Response(TransactionSerializer(transaction_instance).data, status=201)
+
+        except Order.DoesNotExist:
+            return Response({"detail": "Заказ не найден"}, status=404)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)

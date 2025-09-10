@@ -31,22 +31,35 @@ class CarSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Car
-        fields = ('VIN', 'seller', 'make', 'model', 'year', 'price', 'status', 'created_at', 'images')
+        fields = ('VIN', 'seller', 'make', 'model', 'year', 'price', 'status', 'description', 'created_at', 'images')
 
 class CarImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarImage
-        fields = '__all__'
+        fields = ['id', 'car', 'image']
 
 class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = '__all__'
+        read_only_fields = ['total_amount']
+
+    def create(self, validated_data):
+        car = validated_data.get("car")
+
+        buyer = validated_data.get("buyer")
+        if buyer and car and buyer == car.seller:
+            raise serializers.ValidationError("Нельзя сделать заказ на собственную машину")
+
+        validated_data["total_amount"] = car.price
+        return super().create(validated_data)
+
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
-        fields = '__all__'
+        fields = ['id', 'order', 'amount', 'transaction_date', 'status']
+        read_only_fields = ['transaction_date']
 
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
@@ -57,7 +70,6 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = '__all__'
-
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)

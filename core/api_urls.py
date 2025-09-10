@@ -14,8 +14,8 @@ router.register(r'orders', OrderViewSet)
 router.register(r'transactions', TransactionViewSet)
 router.register(r'reviews', ReviewViewSet)
 router.register(r'audit_logs', AuditLogViewSet)
+router.register(r'register', RegisterViewSet, basename='Зарегай полупокера')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('register/', RegisterView.as_view(), name='register'),
 ]
