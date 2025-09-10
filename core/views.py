@@ -64,7 +64,7 @@ class AuditLogViewSet(ModelViewSet):
 class RegisterViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
-    http_method_names = ['post']  # разрешаем только POST
+    http_method_names = ['post']
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -86,6 +86,7 @@ class TransactionViewSet(ModelViewSet):
 
         order = serializer.validated_data['order']
         amount = serializer.validated_data['amount']
+        status_override = serializer.validated_data.get('status', None)
 
         try:
             with transaction.atomic():
@@ -103,13 +104,23 @@ class TransactionViewSet(ModelViewSet):
                         amount=amount,
                         status=Transaction.Status.FAILED
                     )
+                    order.car.status = Car.Status.AVAILABLE
+                    order.car.save()
                     return Response(
                         TransactionSerializer(transaction_instance).data,
                         status=400
                     )
 
+                if status_override == Transaction.Status.CANCELLED:
+                    transaction_instance = serializer.save(status=Transaction.Status.CANCELLED)
+                    order.car.status = Car.Status.AVAILABLE
+                    order.car.save()
+                    return Response(TransactionSerializer(transaction_instance).data, status=200)
+
                 transaction_instance = serializer.save(status=Transaction.Status.COMPLETED)
                 order.status = Order.Status.PAID
+                order.car.status = Car.Status.SOLD
+                order.car.save()
                 order.save()
 
             return Response(TransactionSerializer(transaction_instance).data, status=201)

@@ -54,7 +54,6 @@ class OrderSerializer(serializers.ModelSerializer):
         validated_data["total_amount"] = car.price
         return super().create(validated_data)
 
-
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
