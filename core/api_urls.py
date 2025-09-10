@@ -17,4 +17,5 @@ router.register(r'audit_logs', AuditLogViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('register/', RegisterView.as_view(), name='register'),
 ]

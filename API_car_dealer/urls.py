@@ -22,7 +22,7 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),
     
     # Роуты API
-    path('api/v1/', include('core.api_urls')),  # сюда добавьте роуты из прошлого шага
+    path('api/v1/', include('core.api_urls')),
     
     # Swagger UI
     re_path(r'^swagger\.json$', schema_view.without_ui(cache_timeout=0), name='schema-json'),

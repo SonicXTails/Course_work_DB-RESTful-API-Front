@@ -19,6 +19,11 @@ class User(AbstractUser):
         related_query_name="custom_user_permission",
     )
 
+    @property
+    def roles(self):
+        """Возвращает список названий ролей пользователя"""
+        return self.userrole_set.values_list('role__name', flat=True)
+
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
