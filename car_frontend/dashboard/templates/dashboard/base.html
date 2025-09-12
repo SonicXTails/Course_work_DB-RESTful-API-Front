@@ -1,0 +1,119 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}MySite{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'dashboard/css/base.css' %}">
+    <style>
+        /* Базовая шапка (фиксированная высота) */
+        .site-header {
+            width: 100%;
+            min-height: 60px; /* фиксируем высоту */
+            padding: 1rem 2rem;
+            background-color: var(--btn-login-bg, #38b000);
+            display: flex;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header-container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            color: #fff;
+            font-size: 1.5rem; /* НЕ уменьшаем */
+            font-weight: 700;
+        }
+
+        .theme-btn {
+            background-color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s;
+        }
+
+        .theme-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* Адаптив */
+
+        /* Планшеты */
+        @media (max-width: 999px) and (min-width: 768px) {
+            .header-container {
+                padding: 0 1.5rem;
+            }
+        }
+
+        /* Телефоны */
+        @media (max-width: 767px) {
+            .header-container {
+                flex-direction: row;   /* оставляем в ряд */
+                justify-content: space-between;
+            }
+
+            .logo {
+                flex: 1;
+                text-align: left; /* можно center если хочешь */
+            }
+
+            .theme-btn {
+                flex-shrink: 0;
+            }
+        }
+
+        /* Очень маленькие экраны */
+        @media (max-width: 400px) {
+            .header-container {
+                padding: 0 1rem;
+            }
+        }
+
+        /* Контент */
+        .main-content {
+            padding: 2rem;
+        }
+
+        @media (max-width: 767px) {
+            .main-content {
+                padding: 1rem;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Шапка сайта -->
+    <header class="site-header">
+        <div class="header-container">
+            <div class="logo">MySite</div>
+            <button class="theme-btn" id="toggle-theme">🌞</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+    const toggleBtn = document.getElementById('toggle-theme');
+    toggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        toggleBtn.textContent = document.body.classList.contains('dark') ? '🌙' : '🌞';
+    });
+    </script>
+</body>
+</html>

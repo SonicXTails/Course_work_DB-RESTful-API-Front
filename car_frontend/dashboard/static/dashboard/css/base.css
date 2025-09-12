@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+:root {
+    --bg-color: #f0f8ff;
+    --container-bg: #e0e0e0;
+    --text-color: #2a2a2a;
+    --input-bg: #ffffff;
+    --input-border: #9b5de5;
+    --link-color: #7f3ff1;
+    --error-color: #e63946;
+    --btn-login-bg: #38b000;
+    --btn-login-hover: #2fa100;
+    --btn-register-bg: #9b5de5;
+    --btn-register-hover: #7f3ff1;
+
+    --form-font-size: 1rem;
+    --form-padding: 2rem;
+    --form-input-padding: 0.7rem 1rem;
+    --form-title-size: 1.8rem;
+}
+
+body.dark {
+    --bg-color: #1a1a2e;
+    --container-bg: #26263d;
+    --text-color: #f0f8ff;
+    --input-bg: #333353;
+    --input-border: #38b000;
+    --link-color: #9b5de5;
+    --error-color: #ff6b6b;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+}
+
+h2 {
+    font-size: var(--form-title-size);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+form input,
+form button {
+    width: 100%;
+    padding: var(--form-input-padding);
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    font-size: var(--form-font-size);
+    border: none;
+}
+
+input {
+    background: var(--input-bg);
+    border: 1.5px solid var(--input-border);
+    color: var(--text-color);
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+input:focus {
+    border-color: var(--link-color);
+    box-shadow: 0 0 0 3px rgba(127,63,241,0.25);
+}
+
+button {
+    font-weight: 500;
+    cursor: pointer;
+    color: #fff;
+}
+button.login { background: var(--btn-login-bg); }
+button.login:hover { background: var(--btn-login-hover); }
+button.register { background: var(--btn-register-bg); }
+button.register:hover { background: var(--btn-register-hover); }
+
+.error {
+    color: var(--error-color);
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+p.toggle-form a {
+    color: var(--link-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+p.toggle-form a:hover { text-decoration: underline; }
