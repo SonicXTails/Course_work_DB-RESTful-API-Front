@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
 
 class User(AbstractUser):
     groups = models.ManyToManyField(
@@ -134,12 +137,32 @@ class Transaction(models.Model):
 
         super().save(*args, **kwargs)
 
+
 class Review(models.Model):
-    reviewer = models.ForeignKey(User, related_name='given_reviews', on_delete=models.CASCADE)
-    reviewed_user = models.ForeignKey(User, related_name='received_reviews', on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews_written")
+    target = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews_received")
     rating = models.PositiveSmallIntegerField()
-    comment = models.TextField(blank=True)
+    comment = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['author', 'target'], name='unique_review_per_user'),
+        ]
+
+    def clean(self):
+        if self.author == self.target:
+            raise ValidationError("Нельзя оставить отзыв самому себе!")
+
+        if not 1 <= self.rating <= 5:
+            raise ValidationError("Рейтинг должен быть от 1 до 5!")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Отзыв {self.author} → {self.target} ({self.rating})"
 
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)

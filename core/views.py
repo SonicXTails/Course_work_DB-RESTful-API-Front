@@ -6,8 +6,7 @@ from rest_framework import status
 from .serializers import *
 from .permissions import IsAdmin
 from django.db import transaction
-from .models import *
-
+    
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
