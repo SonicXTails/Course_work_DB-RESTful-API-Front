@@ -1,0 +1,22 @@
+<h2>Пользователи</h2>
+<a href="{% url 'logout' %}">Выйти</a>
+<table border="1" cellpadding="5">
+    <tr>
+        <th>ID</th><th>Username</th><th>Email</th><th>Действия</th>
+    </tr>
+    {% for user in users %}
+    <tr>
+        <form method="post">
+            {% csrf_token %}
+            <td>{{ user.id }}<input type="hidden" name="user_id" value="{{ user.id }}"></td>
+            <td><input type="text" name="username" value="{{ user.username }}"></td>
+            <td><input type="email" name="email" value="{{ user.email }}"></td>
+            <td>
+                <button type="submit" name="edit_user">Сохранить</button>
+                <button type="submit" name="delete_user">Удалить</button>
+            </td>
+        </form>
+    </tr>
+    {% endfor %}
+</table>
+<a href="{% url 'audit_dashboard' %}">AuditLog</a>
