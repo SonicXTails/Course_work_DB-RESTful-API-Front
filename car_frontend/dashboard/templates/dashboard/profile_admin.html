@@ -9,7 +9,6 @@
     <span class="text-muted">Быстрые ссылки</span>
   </div>
 
-  <!-- КНОПКИ -->
   <div class="row g-3 mb-5">
     <div class="col-12 col-md-6 col-lg-4">
       <a id="btn-swagger" class="btn btn-swagger w-100 py-3"
@@ -43,23 +42,72 @@
     </div>
   </div>
 
-  <!-- АУДИТ-ЛОГ -->
-  <h3 class="mb-3">Последние действия</h3>
+  <div class="d-flex align-items-end gap-3 mb-2">
+  <div class="flex-grow-1">
+    <label for="actorFilter" class="form-label mb-1">Фильтр по исполнителю</label>
+    <select id="actorFilter" class="form-select">
+      <option value="all">Все</option>
+      <option value="admin">Только админ</option>
+      <option value="users">Только пользователи</option>
+      <option value="none">Никто</option>  <!-- NEW -->
+    </select>
+  </div>
+
+    <div class="flex-grow-1">
+    <label for="actorSearch" class="form-label mb-1">Поиск по логину</label>
+    <input id="actorSearch" type="text" class="form-control" placeholder="Начни вводить логин…">
+  </div>
+</div>
+
+
+<style>
+#auditToggleBtn {
+  background-color: #212529; /* тот же, что у table-dark */
+  border-color: #343a40;
+  color: #f8f9fa;
+}
+#auditToggleBtn:hover {
+  background-color: #343a40;
+  border-color: #212529;
+}
+</style>
+
+<div class="d-flex align-items-center justify-content-between mt-3">
+  <h3 class="mb-0">Последние действия</h3>
+  <button id="auditToggleBtn"
+          type="button"
+          class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1"
+          aria-expanded="true">
+    Скрыть логи <span class="text-light-emphasis small">(Alt+V)</span>
+  </button>
+</div>
+
+<div class="d-flex align-items-center justify-content-between mt-3">
+  <p class="text-muted small mb-2">
+    Подсказка: нажми <kbd>Alt</kbd>+<kbd>V</kbd> , чтобы быстро скрыть или показать таблицу логов.
+  </p>
+</div>
+
+<style>
+  [hidden] { display: none !important; }
+</style>
+
+<section id="auditSection" class="mt-3">
   <div class="table-responsive">
     <table class="table table-dark table-striped align-middle">
       <thead>
-        <tr>
-          <th>Когда</th>
-          <th>Точная дата</th>
-          <th>Пользователь</th>
-          <th>Действие</th>
-          <th>Таблица</th>
-          <th>ID</th>
-          <th>Изменения</th>
-        </tr>
+      <tr>
+        <th>Когда</th>
+        <th>Точная дата</th>
+        <th>Пользователь</th>
+        <th>Действие</th>
+        <th>Таблица</th>
+        <th>ID</th>
+        <th>Изменения</th>
+      </tr>
       </thead>
       <tbody id="auditBody">
-        {% for log in audit_logs %}
+      {% for log in audit_logs %}
         <tr>
           <td>{{ log.action_time|naturaltime }}</td>
           <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
@@ -98,12 +146,13 @@
             {% endif %}
           </td>
         </tr>
-        {% empty %}
+      {% empty %}
         <tr><td colspan="7" class="text-center text-muted">Нет записей в аудит-логе</td></tr>
-        {% endfor %}
+      {% endfor %}
       </tbody>
     </table>
   </div>
+</section>
 
   <hr class="my-4">
   <h3 class="mb-3">Назначить роль пользователю</h3>
@@ -286,18 +335,39 @@ async function apiFetch(path, options = {}) {
 </script>
 
 <script>
-// ===== АВТО-ОБНОВЛЕНИЕ АУДИТ-ЛОГА =====
 (function () {
-  const auditBody = document.getElementById('auditBody');
-  if (!auditBody) return;
+  const API_BASE  = "http://127.0.0.1:8000/api/v1";
+  const API_TOKEN = "{{ request.session.api_token|default:'' }}";
 
-  function fmtDate(iso) {
-    const d = new Date(iso);
-    const pad = n => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  async function apiFetch(path, options = {}) {
+    if (!API_TOKEN) throw new Error("Нет токена в сессии — перелогинься");
+    const headers = { "Authorization": "Token " + API_TOKEN, ...(options.headers || {}) };
+    if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+    return fetch(API_BASE + path, { ...options, headers, mode: "cors" });
   }
 
-  function ago(iso) {
+  const section  = document.getElementById('auditSection');
+  const tbody    = document.getElementById('auditBody');
+  const btn      = document.getElementById('auditToggleBtn');
+  const filterEl = document.getElementById('actorFilter');
+  const searchEl = document.getElementById('actorSearch');
+
+  if (!section || !tbody || !btn) return;
+
+  btn.disabled = false;
+  btn.removeAttribute('disabled');
+  btn.style.pointerEvents = 'auto';
+
+  let rawData = [];
+  let lastHash = null;
+  const intervalMs = 5000;
+
+  const pad = n => String(n).padStart(2, '0');
+  const fmtDate = iso => {
+    const d = new Date(iso);
+    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+  const ago = iso => {
     const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime())/1000));
     if (sec < 60) return `${sec} с назад`;
     const min = Math.floor(sec/60);
@@ -306,119 +376,162 @@ async function apiFetch(path, options = {}) {
     if (hr < 24) return `${hr} ч назад`;
     const day = Math.floor(hr/24);
     return `${day} д назад`;
-  }
+  };
+  const badge = a => a==='CREATE'||a==='POST' ? '<span class="badge bg-success">POST</span>'
+                : a==='UPDATE'||a==='PUT' ? '<span class="badge bg-warning text-dark">PUT</span>'
+                : a==='DELETE' ? '<span class="badge bg-danger">DELETE</span>'
+                : `<span class="badge bg-secondary">${a}</span>`;
 
-  function badge(action) {
-    if (action === 'CREATE' || action === 'POST') return '<span class="badge bg-success">POST</span>';
-    if (action === 'UPDATE' || action === 'PUT')  return '<span class="badge bg-warning text-dark">PUT</span>';
-    if (action === 'DELETE')                      return '<span class="badge bg-danger">DELETE</span>';
-    return `<span class="badge bg-secondary">${action}</span>`;
-  }
+  const actorName = log => log.actor_label || log.user_username || 'незнакомец';
 
-  function rowHtml(log) {
+  const rowHtml = log => {
     const whenHuman = ago(log.action_time);
     const whenExact = fmtDate(log.action_time);
-    const actor = log.actor_label || log.user_username || 'незнакомец';
-
-    let changesCell = '';
+    const actor = actorName(log);
+    let changes = '';
     if (log.action === 'UPDATE' || log.action === 'PUT') {
-      const oldData = typeof log.old_data === 'object' ? JSON.stringify(log.old_data) : (log.old_data ?? '');
-      const newData = typeof log.new_data === 'object' ? JSON.stringify(log.new_data) : (log.new_data ?? '');
-      changesCell = `
-        <details data-log-id="${log.id || ''}">
-          <summary>Посмотреть</summary>
-          <div><b>Старое:</b> ${oldData}</div>
-          <div><b>Новое:</b> ${newData}</div>
-        </details>`;
+      const od = typeof log.old_data === 'object' ? JSON.stringify(log.old_data) : (log.old_data ?? '');
+      const nd = typeof log.new_data === 'object' ? JSON.stringify(log.new_data) : (log.new_data ?? '');
+      changes = `<details data-log-id="${log.id||''}"><summary>Посмотреть</summary><div><b>Старое:</b> ${od}</div><div><b>Новое:</b> ${nd}</div></details>`;
     } else if (log.action === 'CREATE' || log.action === 'POST') {
-      changesCell = `<span class="text-success">Создано</span>`;
+      changes = `<span class="text-success">Создано</span>`;
     } else if (log.action === 'DELETE') {
-      changesCell = `<span class="text-danger">Удалено</span>`;
-    } else {
-      changesCell = '';
+      changes = `<span class="text-danger">Удалено</span>`;
     }
+    return `<tr data-log-id="${log.id||''}">
+      <td>${whenHuman}</td>
+      <td>${whenExact}</td>
+      <td>${actor}</td>
+      <td>${badge(log.action)}</td>
+      <td>${log.table_name ?? ''}</td>
+      <td>${log.record_id ?? ''}</td>
+      <td>${changes}</td>
+    </tr>`;
+  };
 
-    return `
-      <tr data-log-id="${log.id || ''}">
-        <td>${whenHuman}</td>
-        <td>${whenExact}</td>
-        <td>${actor}</td>
-        <td>${badge(log.action)}</td>
-        <td>${log.table_name ?? ''}</td>
-        <td>${log.record_id ?? ''}</td>
-        <td>${changesCell}</td>
-      </tr>`;
+  const isAdminLog = log => (log.actor_label || '').toLowerCase().startsWith('admin:');
+  const isUserLog  = log => (log.user != null) && !isAdminLog(log);
+
+  const isNoneLog  = log =>
+    !log?.actor_label &&
+    (log?.user == null || log?.user === undefined) &&
+    !log?.user_username;
+
+  function passesFilter(log) {
+    const mode = filterEl ? filterEl.value : 'all';
+    if (mode === 'admin') return isAdminLog(log);
+    if (mode === 'users') return isUserLog(log);
+    if (mode === 'none')  return isNoneLog(log);
+    return true;
+  }
+  function passesSearch(log) {
+    const q = (searchEl?.value || '').trim().toLowerCase();
+    return !q || actorName(log).toLowerCase().includes(q);
   }
 
   function getOpenSet() {
-    const set = new Set();
-    auditBody.querySelectorAll('details[open][data-log-id]').forEach(d => {
-      const id = d.getAttribute('data-log-id');
-      if (id) set.add(id);
+    const s = new Set();
+    tbody.querySelectorAll('details[open][data-log-id]').forEach(d => {
+      const id = d.getAttribute('data-log-id'); if (id) s.add(id);
     });
-    return set;
+    return s;
   }
-  function restoreOpen(set) {
-    auditBody.querySelectorAll('details[data-log-id]').forEach(d => {
-      const id = d.getAttribute('data-log-id');
-      if (id && set.has(id)) d.setAttribute('open', '');
+  function restoreOpen(s) {
+    tbody.querySelectorAll('details[data-log-id]').forEach(d => {
+      const id = d.getAttribute('data-log-id'); if (id && s.has(id)) d.setAttribute('open','');
     });
   }
 
-  let lastHash = null;
-  let timer = null;
-  let intervalMs = 5000;
+  function render() {
+    if (section.style.display === 'none') return;
+    const open = getOpenSet();
+    const list = rawData.filter(passesFilter).filter(passesSearch);
+    tbody.innerHTML = list.length ? list.map(rowHtml).join('') :
+      `<tr><td colspan="7" class="text-center text-muted">Нет записей</td></tr>`;
+    restoreOpen(open);
+  }
 
   async function fetchLogs() {
     try {
-      const res = await apiFetch(`/admin/audit_logs/?limit=20&ordering=-action_time`, { method: 'GET' });
+      const res = await apiFetch(`/admin/audit_logs/?limit=20&ordering=-action_time`);
       if (!res.ok) return;
       const data = await res.json();
-      const hash = JSON.stringify(data.map(x => [x.id, x.action_time, x.action]));
-      if (hash === lastHash) {
-        refreshHumanizedTimes();
-        return;
-      }
+      const hash = JSON.stringify(data.map(x => [x.id, x.action_time, x.action, x.actor_label, x.user]));
+      if (hash === lastHash) { refreshTimes(); return; }
       lastHash = hash;
-
-      const openSet = getOpenSet();
-      const html = data.map(rowHtml).join('');
-      auditBody.innerHTML = html;
-      restoreOpen(openSet);
-    } catch (e) {
-    }
+      rawData = data;
+      render();
+    } catch(_) {}
   }
 
-  function refreshHumanizedTimes() {
-    const rows = auditBody.querySelectorAll('tr');
-    rows.forEach(tr => {
-      const exactCell = tr.children[1];
-      const whenCell  = tr.children[0];
-      if (!exactCell || !whenCell) return;
-      const txt = exactCell.textContent?.trim();
-      if (!txt) return;
-      const [date, time] = txt.split(' ');
+  function refreshTimes() {
+    tbody.querySelectorAll('tr').forEach(tr => {
+      const exact = tr.children[1], when = tr.children[0];
+      if (!exact || !when) return;
+      const txt = exact.textContent.trim();
+      const [date,time] = txt.split(' ');
       if (!date || !time) return;
       const [d,m,y] = date.split('.').map(Number);
       const [hh,mm,ss] = time.split(':').map(Number);
       const iso = new Date(y, m-1, d, hh, mm, ss).toISOString();
-      whenCell.textContent = ago(iso);
+      when.textContent = ago(iso);
     });
   }
 
-  function loop() {
-    if (document.hidden) return;
-    fetchLogs();
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
+  function applyHidden(hidden) {
+    if (hidden) {
+      section.style.display = 'none';
+      btn.textContent = 'Показать логи';
+      btn.classList.add('collapsed');
+      localStorage.setItem(LS_KEY, '1');
+    } else {
+      section.style.display = '';
+      btn.textContent = 'Скрыть логи';
+      btn.classList.remove('collapsed');
+      localStorage.setItem(LS_KEY, '0');
       fetchLogs();
     }
-  });
+  }
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchLogs(); });
+  filterEl?.addEventListener('change', render);
+  searchEl?.addEventListener('input', () => { clearTimeout(render._t); render._t = setTimeout(render, 150); });
 
   fetchLogs();
-  timer = setInterval(loop, intervalMs);
+  setInterval(() => { if (!document.hidden && !section.hidden && section.style.display !== 'none') fetchLogs(); }, intervalMs);
+})();
+</script>
+
+
+<script>
+(function () {
+  const section = document.getElementById('auditSection');
+  const btn     = document.getElementById('auditToggleBtn');
+  if (!section || !btn) return;
+
+  const LS_KEY = 'audit_logs_hidden';
+
+  function setHidden(hidden) {
+    section.hidden = !!hidden;
+    btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+    btn.innerHTML = (hidden ? 'Показать' : 'Скрыть') +
+      ' логи <span class="text-light-emphasis small">(Alt+V)</span>';
+    localStorage.setItem(LS_KEY, hidden ? '1' : '0');
+  }
+
+  setHidden(localStorage.getItem(LS_KEY) === '1');
+
+  btn.addEventListener('click', () => setHidden(!section.hidden));
+
+  document.addEventListener('keydown', (e) => {
+    const tag = (document.activeElement?.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || document.activeElement?.isContentEditable) return;
+
+    if (e.altKey && !e.ctrlKey && e.code === 'KeyV') {
+      e.preventDefault();
+      document.getElementById('auditToggleBtn')?.click();
+    }
+  });
 })();
 </script>
 
