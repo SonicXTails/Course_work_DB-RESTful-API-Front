@@ -1,12 +1,15 @@
 from django.db import transaction
 from django.utils.decorators import method_decorator
 
+from PIL import Image
+from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework import status
 from core.viewsets import AuditModelViewSet as ModelViewSet
+from rest_framework.permissions import BasePermission
 
 from drf_yasg.utils import swagger_auto_schema
 
@@ -22,7 +25,11 @@ from .models import (
 )
 from core.permissions import IsAdminOrReadOnlyAuthenticated, IsOwnerOrAdminForWrite
 
-
+class IsSuperuserOrRoleAdmin(BasePermission):
+    def has_permission(self, request, view):
+        u = request.user
+        return bool(u and u.is_authenticated and (u.is_superuser or ('admin' in getattr(u, 'roles', []))))
+    
 # ---------------------------
 # Пользователи
 # ---------------------------
@@ -40,7 +47,7 @@ class UserViewSet(ModelViewSet):
         if self.action == "me":
             return [IsAuthenticated()]
         elif self.action in ["list", "retrieve"]:
-            return [IsAdminUser()]
+            return [IsSuperuserOrRoleAdmin()]
         return [AllowAny()]
 
     # запрет на create как было
@@ -97,7 +104,8 @@ class UserRoleViewSet(ModelViewSet):
             return qs
         return qs.filter(user=u.id)
 
-    @action(detail=False, methods=['put'], url_path='assign', permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['put'], url_path='assign',
+            permission_classes=[IsSuperuserOrRoleAdmin])   # было IsAdminUser
     def assign(self, request):
         user_id = request.data.get('user')
         role_id = request.data.get('role')
@@ -129,7 +137,7 @@ class UserRoleViewSet(ModelViewSet):
 class MakeViewSet(ModelViewSet):
     queryset = Make.objects.all()
     serializer_class = MakeSerializer
-    permission_classes = [IsAdminOrReadOnlyAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Catalog / Models']))
@@ -139,10 +147,9 @@ class MakeViewSet(ModelViewSet):
 @method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Catalog / Models']))
 @method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Catalog / Models']))
 class VehicleModelViewSet(ModelViewSet):
-    """Вьюсет для модели Model (переименован, чтобы не конфликтовать с DRF.ModelViewSet)."""
     queryset = Model.objects.all()
     serializer_class = ModelSerializer
-    permission_classes = [IsAdminOrReadOnlyAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
 
 # ---------------------------
@@ -161,6 +168,64 @@ class CarViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='images',
+        parser_classes=[MultiPartParser],         # ждём multipart/form-data
+        permission_classes=[IsAuthenticated],     # можно ужесточить, если нужно
+    )
+    def upload_images(self, request, pk=None):
+        """
+        POST /api/v1/cars/{VIN}/images/
+        Принимает несколько файлов под ключом 'files' (или одиночный 'image').
+        Возвращает список созданных CarImage с абсолютными URL.
+        """
+        # Найдём машину по VIN (VIN у тебя — primary_key, так что pk — это VIN)
+        try:
+            car = Car.objects.get(pk=pk)
+        except Car.DoesNotExist:
+            return Response({"detail": "Машина не найдена"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Соберём файлы: либо files[], либо один image
+        files = request.FILES.getlist('files')
+        if not files and 'image' in request.FILES:
+            files = [request.FILES['image']]
+
+        if not files:
+            return Response({"detail": "Файлы не переданы. Используй поле 'files' (множественное) или 'image'."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Твой вставляемый блок: создаём записи и сериализуем с request в контексте
+        created = []
+        for f in files:
+            if f.size > 8 * 1024 * 1024:
+                return Response({"detail": f"Слишком большой файл: {f.name} (>8MB)"}, status=400)
+
+            try:
+                im = Image.open(f)
+                w, h = im.size
+                ratio = (w / h) if h else 0
+            except Exception:
+                return Response({"detail": f"Не удалось прочитать изображение: {getattr(f, 'name', 'file')}"}, status=400)
+
+            if w < 800 or h < 450 or ratio < 1.3:
+                return Response(
+                    {"detail": f"Недопустимое фото {getattr(f,'name','')}: только горизонтальные ≥800×450, соотношение ≥1.3"},
+                    status=400
+                )
+
+            # Сбросить курсор файла для последующей записи
+            try:
+                f.seek(0)
+            except Exception:
+                pass
+
+            img = CarImage.objects.create(car=car, image=f)
+            created.append(CarImageSerializer(img, context={"request": request}).data)
+
+        return Response(created, status=201)
 
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Cars / Images']))
@@ -273,7 +338,6 @@ class ReviewViewSet(ModelViewSet):
 # ---------------------------
 # Аудит: публичный и админский (чистый)
 # ---------------------------
-
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Admin / Audit']))
 @method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Admin / Audit']))
 @method_decorator(name='create',         decorator=swagger_auto_schema(tags=['Admin / Audit']))
@@ -283,16 +347,15 @@ class ReviewViewSet(ModelViewSet):
 class AuditLogViewSet(ModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
-    permission_classes = [IsAdminUser]
-
+    permission_classes = [IsSuperuserOrRoleAdmin]  # чтобы роль admin имела доступ
 
 class AuditLogAdminViewSet(ModelViewSet):
     """
-    Чистый админский вьюсет для /api/v1/admin/audit_logs/ БЕЗ swagger-декораторов.
+    Чистый админский вьюсет для /api/v1/admin/audit_logs/
     """
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsSuperuserOrRoleAdmin]
 
 
 # ---------------------------

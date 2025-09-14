@@ -1,10 +1,11 @@
 from django.db.models.signals import pre_save, post_save, post_delete, post_migrate
 from django.dispatch import receiver
 from django.forms.models import model_to_dict
+from django.db.models.fields.files import FieldFile
 from .models import Role, UserRole, AuditLog, Car, Order, Transaction, Review, CarImage, Make, Model
 from django.contrib.auth import get_user_model
 from core.middleware import get_current_user
-import datetime, decimal
+import datetime, decimal, uuid
 
 User = get_user_model()
 WATCHED_MODELS = [User, Role, UserRole, Car, Make, Model, CarImage, Order, Transaction, Review]
@@ -92,3 +93,30 @@ def assign_admin_role(sender, instance, created, **kwargs):
     if created and instance.is_superuser:
         admin_role, _ = Role.objects.get_or_create(name='admin')
         UserRole.objects.get_or_create(user=instance, role=admin_role)
+
+def make_json_safe(data: dict) -> dict:
+    safe_data = {}
+    for k, v in data.items():
+        # даты
+        if isinstance(v, (datetime.datetime, datetime.date, datetime.time)):
+            safe_data[k] = v.isoformat()
+        # деньги/десятичные
+        elif isinstance(v, decimal.Decimal):
+            safe_data[k] = float(v)
+        # UUID
+        elif isinstance(v, uuid.UUID):
+            safe_data[k] = str(v)
+        # Django File/ImageField
+        elif isinstance(v, FieldFile):
+            # сохраняем только путь/имя файла; если файла нет — None
+            safe_data[k] = v.name or None
+        # bytes (вдруг где-то окажется)
+        elif isinstance(v, (bytes, bytearray, memoryview)):
+            safe_data[k] = v.decode('utf-8', errors='replace')
+        else:
+            try:
+                # на случай ленивых обёрток — приведём к plain типам
+                safe_data[k] = v if isinstance(v, (int, float, str, bool, type(None), list, dict)) else str(v)
+            except Exception:
+                safe_data[k] = str(v)
+    return safe_data

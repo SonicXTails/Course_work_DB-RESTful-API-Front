@@ -114,6 +114,8 @@
           <td>
             {% if log.user_username %}
               {{ log.user_username }}
+            {% elif log.user %}
+              {{ log.user.username }}
             {% elif log.actor_label %}
               {{ log.actor_label }}
             {% else %}

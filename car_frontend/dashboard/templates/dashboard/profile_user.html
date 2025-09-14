@@ -1,12 +1,17 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 {% block title %}Профиль{% endblock %}
 
 {% block content %}
 <div class="container py-5" style="max-width: 860px;">
 
+  <!-- Заголовок + создать -->
   <div class="d-flex align-items-center justify-content-between mb-4">
     <h2 class="mb-0">Личный кабинет</h2>
-    <span class="text-muted">Ваши данные</span>
+    <button id="createCarBtn" type="button" class="btn btn-success"
+            data-bs-toggle="modal" data-bs-target="#createCarModal">
+      + Создать объявление
+    </button>
   </div>
 
   {% if messages %}
@@ -15,54 +20,47 @@
     {% endfor %}
   {% endif %}
 
-  <div class="card border-0 shadow profile-card">
-    <div class="card-header d-flex align-items-center justify-content-between">
+  <!-- Карточка профиля -->
+  <div class="card border-0 shadow" style="background:#1f2a36;color:#e9ecef;">
+    <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
       <strong>Профиль пользователя</strong>
-      <small class="text-secondary">Добро пожаловать, {{ user.username }}</small>
+      <small class="text-secondary ms-2">Привет, {{ user.username }}</small>
     </div>
-
     <div class="card-body">
-
       {% if form.non_field_errors %}
         <div class="alert alert-danger mb-4" role="alert">
           <ul class="mb-0">
-            {% for err in form.non_field_errors %}
-              <li>{{ err }}</li>
-            {% endfor %}
+            {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
           </ul>
         </div>
       {% endif %}
 
-      <form method="post" novalidate id="profileForm" class="needs-validation">
+      <form method="post" id="profileForm" class="needs-validation" novalidate>
         {% csrf_token %}
-
         <div class="row g-3">
           <div class="col-12">
-            <label class="form-label" for="{{ form.username.id_for_label }}">Логин</label>
+            <label class="form-label">Логин</label>
             {{ form.username }}
             {% if form.username.errors %}
               <div class="invalid-feedback d-block">{{ form.username.errors|join:", " }}</div>
             {% endif %}
           </div>
-
           <div class="col-md-6">
-            <label class="form-label" for="{{ form.first_name.id_for_label }}">Имя</label>
+            <label class="form-label">Имя</label>
             {{ form.first_name }}
             {% if form.first_name.errors %}
               <div class="invalid-feedback d-block">{{ form.first_name.errors|join:", " }}</div>
             {% endif %}
           </div>
-
           <div class="col-md-6">
-            <label class="form-label" for="{{ form.last_name.id_for_label }}">Фамилия</label>
+            <label class="form-label">Фамилия</label>
             {{ form.last_name }}
             {% if form.last_name.errors %}
               <div class="invalid-feedback d-block">{{ form.last_name.errors|join:", " }}</div>
             {% endif %}
           </div>
-
           <div class="col-12">
-            <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+            <label class="form-label">Email</label>
             {{ form.email }}
             {% if form.email.errors %}
               <div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>
@@ -78,59 +76,360 @@
       </form>
     </div>
   </div>
+
+  <hr class="my-5">
+
+  <!-- Мои объявления -->
+  <h4 class="mb-3">Мои объявления</h4>
+  {% if my_cars %}
+    <div class="list-group" id="myCarsList">
+      {% for car in my_cars %}
+        <div class="list-group-item d-flex align-items-center gap-3"
+             style="background:#18222f;color:#eef3f9;border:1px solid #2b3a4a;"
+             data-vin="{{ car.VIN }}"
+             data-year="{{ car.year }}"
+             data-price="{{ car.price }}"
+             data-status="{{ car.status }}"
+             data-description="{{ car.description|default:'' }}">
+          <img src="{{ car.images|first }}"
+               alt="img"
+               onerror="this.onerror=null;this.src='{% static 'img/default.png' %}';"
+               style="width:84px;height:56px;object-fit:cover;border-radius:.5rem;border:1px solid #2b3a4a;">
+          <div class="flex-grow-1">
+            <div class="fw-semibold">
+              {{ car.make_name }} {{ car.model_name }}{% if car.year %} · {{ car.year }}{% endif %}
+            </div>
+            <div class="small text-muted">
+              VIN: <span class="font-monospace">{{ car.VIN }}</span>
+            </div>
+          </div>
+          <div class="text-end me-2">
+            <div class="fw-bold">{{ car.price }} ₽</div>
+            <span class="badge
+              {% if car.status == 'available' %}bg-success
+              {% elif car.status == 'reserved' %}bg-warning text-dark
+              {% elif car.status == 'sold' %}bg-danger
+              {% else %}bg-secondary{% endif %}">
+              {{ car.status }}
+            </span>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-light car-edit">Редактировать</button>
+            <button class="btn btn-sm btn-outline-danger car-del">Удалить</button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert alert-secondary">У тебя пока нет объявлений. Создай первое 👆</div>
+  {% endif %}
+
+</div>
+
+<!-- Модалка: СОЗДАТЬ -->
+<div class="modal fade" id="createCarModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="background:#1f2a36;color:#e9ecef;">
+      <div class="modal-header">
+        <h5 class="modal-title">Новое объявление</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="carFormAlert" class="alert d-none" role="alert"></div>
+        <form id="carCreateForm" novalidate>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">VIN</label>
+              <input name="VIN" class="form-control" maxlength="17" required placeholder="17 символов">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Марка</label>
+              <select name="make" class="form-select" required></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Модель</label>
+              <select name="model" class="form-select" required disabled></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Год</label>
+              <input name="year" type="number" class="form-control" min="1950" max="2100" value="2020" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Цена</label>
+              <input name="price" type="number" step="0.01" min="0" class="form-control" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Фото (до 10 шт.)</label>
+              <input id="carPhotos" name="photos" type="file" class="form-control" accept="image/*" multiple>
+              <div id="photosPreview" class="d-flex flex-wrap gap-2 mt-2"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Описание</label>
+              <textarea name="description" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary">Создать</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: РЕДАКТИРОВАТЬ (короткая) -->
+<div class="modal fade" id="editCarModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="carEditForm" style="background:#1f2a36;color:#e9ecef;">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать объявление</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="carEditAlert" class="alert d-none" role="alert"></div>
+        <input type="hidden" name="VIN">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label">Год</label>
+            <input name="year" type="number" class="form-control" min="1950" max="2100" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Цена</label>
+            <input name="price" type="number" step="0.01" min="0" class="form-control" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Статус</label>
+            <select name="status" class="form-select">
+              <option value="available">available</option>
+              <option value="reserved">reserved</option>
+              <option value="sold">sold</option>
+              <option value="unavailable">unavailable</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Описание</label>
+            <textarea name="description" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Добавить новые фото (опц.)</label>
+            <input id="carPhotosEdit" type="file" class="form-control" accept="image/*" multiple>
+            <div class="form-text">Текущие фото сохранятся — здесь можно только добавить.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <style>
-/* тёмная "админская" карточка без base.css */
-.profile-card { background:#1f2a36; color:#e9ecef; }
-.profile-card .card-header { background:#243141; border-bottom:1px solid #2f3c4e; color:#e9ecef; }
-.profile-card .form-label { color:#cfd8dc; }
-.profile-card .form-text { color:#9fb3c8 !important; }
-
-.profile-card input.form-control,
-.profile-card input[type="text"],
-.profile-card input[type="email"] {
-  background:#18222f; color:#f1f5f9; border:1px solid #2b3a4a;
-}
-.profile-card input.form-control:focus,
-.profile-card input[type="text"]:focus,
-.profile-card input[type="email"]:focus {
-  background:#1d2a3a; color:#fff; border-color:#3d5a80; box-shadow:none;
-}
-
-/* чтобы invalid-feedback был читаемым на тёмном фоне */
-.invalid-feedback.d-block { color:#f8d7da; }
-
-/* кнопки */
-.btn-outline-light { border-color:#6c757d; color:#e9ecef; }
-.btn-outline-light:hover { background:#2a3444; color:#fff; }
+  .invalid-feedback.d-block { color:#f8d7da; }
+  #photosPreview .thumb { width:96px;text-align:center;border:1px solid #2b3a4a;border-radius:.5rem;padding:.25rem;background:#18222f; }
+  #photosPreview img { width:90px;height:90px;object-fit:cover;border-radius:.5rem; }
 </style>
 
+<!-- JS: кратко и по делу -->
 <script>
-  // Блокируем "Сохранить", пока ничего не изменили
-  (function () {
-    const form = document.getElementById('profileForm');
-    const save = document.getElementById('saveBtn');
-    if (!form || !save) return;
+(function () {
+  // ====== общие ======
+  const API = "http://127.0.0.1:8000/api/v1";
+  const TOKEN = "{{ request.session.api_token|default:'' }}";
+  if (!TOKEN) console.warn("Нет API токена в сессии");
+  const H_JSON = { "Authorization": "Token " + TOKEN, "Content-Type": "application/json" };
+  const H_AUTH = { "Authorization": "Token " + TOKEN };
 
-    const initial = new FormData(form);
-    function isDirty() {
-      const now = new FormData(form);
-      for (const [k, v] of now.entries()) {
-        if (v !== (initial.get(k) ?? "")) return true;
-      }
+  // ====== профиль: дизабл «Сохранить», пока нет изменений ======
+  const pf = document.getElementById('profileForm');
+  const saveBtn = document.getElementById('saveBtn');
+  if (pf && saveBtn) {
+    const init = new FormData(pf);
+    const isDirty = () => {
+      const now = new FormData(pf);
+      for (const [k, v] of now.entries()) if (v !== (init.get(k) ?? "")) return true;
       return false;
-    }
-    function toggle() { save.disabled = !isDirty(); }
-    form.addEventListener('input', toggle);
-    form.addEventListener('change', toggle);
-    form.addEventListener('reset', () => {
-      setTimeout(() => {
-        for (const [k] of initial.entries()) initial.set(k, form.elements[k]?.value ?? "");
-        toggle();
-      }, 0);
-    });
+    };
+    const toggle = () => saveBtn.disabled = !isDirty();
+    pf.addEventListener('input', toggle);
+    pf.addEventListener('change', toggle);
+    pf.addEventListener('reset', () => setTimeout(() => { for (const [k] of init) init.set(k, pf.elements[k]?.value ?? ""); toggle(); }, 0));
     toggle();
-  })();
+  }
+
+  // ====== СОЗДАНИЕ ======
+  const modalCreate = document.getElementById('createCarModal');
+  const createForm  = document.getElementById('carCreateForm');
+  const createAlert = document.getElementById('carFormAlert');
+  const makeSel     = createForm?.elements['make'];
+  const modelSel    = createForm?.elements['model'];
+  const photosInput = document.getElementById('carPhotos');
+  const photosPreview = document.getElementById('photosPreview');
+
+  const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/i;
+
+  function alertCreate(kind, html) {
+    createAlert.className = `alert alert-${kind}`;
+    createAlert.innerHTML = html;
+    createAlert.classList.remove('d-none');
+  }
+  function clearCreateAlert(){ createAlert.className='alert d-none'; createAlert.textContent=''; }
+
+  modalCreate?.addEventListener('show.bs.modal', async () => {
+    try {
+      if (makeSel.options.length) return; // уже загружено
+      const [mk, md] = await Promise.all([
+        fetch(`${API}/makes/`,  { headers: H_AUTH }),
+        fetch(`${API}/models/`, { headers: H_AUTH }),
+      ]);
+      const makes  = mk.ok ? await mk.json() : [];
+      const models = md.ok ? await md.json() : [];
+      makeSel.innerHTML  = '<option value="">— выберите марку —</option>';
+      for (const m of makes) {
+        const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; makeSel.appendChild(o);
+      }
+      makeSel.dataset._models = JSON.stringify(models);
+      modelSel.innerHTML = '<option value="">— выберите модель —</option>'; modelSel.disabled = true;
+      makeSel.addEventListener('change', () => {
+        const all = JSON.parse(makeSel.dataset._models || '[]');
+        const mid = Number(makeSel.value);
+        const filtered = all.filter(x => Number(x.make) === mid);
+        modelSel.innerHTML = '<option value="">— выберите модель —</option>';
+        for (const md of filtered) {
+          const o = document.createElement('option'); o.value = md.id; o.textContent = md.name; modelSel.appendChild(o);
+        }
+        modelSel.disabled = filtered.length === 0;
+      });
+    } catch { alertCreate('danger', 'Не удалось загрузить марки/модели'); }
+  });
+
+  photosInput?.addEventListener('change', () => {
+    photosPreview.innerHTML = '';
+    const files = Array.from(photosInput.files || []);
+    if (files.length > 10) { alertCreate('warning', 'До 10 фото'); photosInput.value=''; return; }
+    for (const f of files) {
+      const url = URL.createObjectURL(f);
+      const w = document.createElement('div'); w.className='thumb';
+      w.innerHTML = `<img src="${url}" alt=""><div class="mt-1" style="font-size:.75rem">${f.name.slice(0,12)}</div>`;
+      photosPreview.appendChild(w);
+    }
+  });
+
+  async function uploadPhotos(vin, files) {
+    if (!files?.length) return;
+    const fd = new FormData();
+    if (files.length > 10) throw new Error('Максимум 10 фото');
+    for (const f of files) {
+      if (f.size > 8*1024*1024) throw new Error(`Слишком большой файл: ${f.name}`);
+      fd.append('files', f);
+    }
+    const r = await fetch(`${API}/cars/${encodeURIComponent(vin)}/images/`, { method:'POST', headers: H_AUTH, body: fd });
+    if (!r.ok) throw new Error('Ошибка загрузки фото');
+  }
+
+  createForm?.addEventListener('submit', async (e) => {
+    e.preventDefault(); clearCreateAlert();
+    const vin   = createForm.elements['VIN'].value.trim().toUpperCase();
+    const make  = Number(createForm.elements['make'].value);
+    const model = Number(createForm.elements['model'].value);
+    const year  = Number(createForm.elements['year'].value);
+    const price = String(createForm.elements['price'].value);
+    const desc  = createForm.elements['description'].value.trim();
+
+    if (!VIN_RE.test(vin)) return alertCreate('warning','VIN: 17 символов [A-H J-N P-R Z 0-9], без I/O/Q');
+    if (!make || !model) return alertCreate('warning','Выбери марку и модель');
+
+    const fd = new FormData();
+    fd.append('VIN', vin);
+    fd.append('make', String(make));
+    fd.append('model', String(model));
+    fd.append('year', String(year));
+    fd.append('price', price);
+    fd.append('description', desc);
+
+    try {
+      const res = await fetch(`${API}/cars/`, { method:'POST', headers: H_AUTH, body: fd });
+      let data = null; try { data = await res.json(); } catch {}
+      if (!res.ok) return alertCreate('danger', data?.detail || JSON.stringify(data) || res.statusText);
+
+      try { await uploadPhotos(vin, Array.from(photosInput.files || [])); } 
+      catch (err) { alertCreate('warning', `Создано, но фото не загрузились: ${String(err)}`); }
+
+      alertCreate('success', `Объявление создано (VIN ${vin})`);
+      createForm.reset(); photosPreview.innerHTML='';
+      setTimeout(() => location.reload(), 600);
+    } catch (err) {
+      alertCreate('danger', String(err));
+    }
+  });
+
+  // ====== РЕДАКТИРОВАНИЕ / УДАЛЕНИЕ ======
+  const list = document.getElementById('myCarsList');
+  const modalEdit = document.getElementById('editCarModal');
+  const editForm  = document.getElementById('carEditForm');
+  const editAlert = document.getElementById('carEditAlert');
+  const photosEdit= document.getElementById('carPhotosEdit');
+
+  const editMsg = (kind, txt) => { editAlert.className=`alert alert-${kind}`; editAlert.textContent=txt; editAlert.classList.remove('d-none'); };
+  const editClear=()=>{ editAlert.className='alert d-none'; editAlert.textContent=''; };
+
+  function openEdit(row){
+    editClear();
+    editForm.VIN.value = row.dataset.vin;
+    editForm.year.value = row.dataset.year || '';
+    editForm.price.value = row.dataset.price || '';
+    editForm.status.value = row.dataset.status || 'available';
+    editForm.description.value = row.dataset.description || '';
+    photosEdit.value = '';
+    new bootstrap.Modal(modalEdit).show();
+  }
+
+  list?.addEventListener('click', async (e) => {
+    const row = e.target.closest('.list-group-item'); if (!row) return;
+
+    if (e.target.closest('.car-edit')) openEdit(row);
+
+    if (e.target.closest('.car-del')) {
+      if (!confirm(`Удалить VIN ${row.dataset.vin}?`)) return;
+      try {
+        const r = await fetch(`${API}/cars/${encodeURIComponent(row.dataset.vin)}/`, { method:'DELETE', headers: H_AUTH });
+        if (r.status===204 || r.status===200) row.remove();
+        else {
+          let msg=`Не удалось удалить (${r.status})`; try{ const d=await r.json(); if(d.detail) msg=d.detail }catch{}
+          alert(msg);
+        }
+      } catch (err) { alert(String(err)); }
+    }
+  });
+
+  editForm?.addEventListener('submit', async (e) => {
+    e.preventDefault(); editClear();
+    const vin = editForm.VIN.value;
+    const payload = {
+      year: Number(editForm.year.value),
+      price: editForm.price.value,
+      status: editForm.status.value,
+      description: editForm.description.value.trim(),
+    };
+
+    try {
+      const r = await fetch(`${API}/cars/${encodeURIComponent(vin)}/`, { method:'PATCH', headers: H_JSON, body: JSON.stringify(payload) });
+      if (!r.ok) {
+        let msg=r.statusText; try{ const d=await r.json(); msg=d.detail||JSON.stringify(d)}catch{}
+        return editMsg('danger', `Не удалось сохранить: ${msg}`);
+      }
+      // фото (опц.)
+      try { await uploadPhotos(vin, Array.from(photosEdit.files || [])); }
+      catch (err) { editMsg('warning', `Сохранено, но фото не загрузились: ${String(err)}`); }
+
+      editMsg('success', 'Сохранено ✔');
+      setTimeout(()=>location.reload(), 500);
+    } catch (err) {
+      editMsg('danger', String(err));
+    }
+  });
+})();
 </script>
 {% endblock %}

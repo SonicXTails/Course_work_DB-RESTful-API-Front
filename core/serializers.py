@@ -39,9 +39,18 @@ class CarSerializer(serializers.ModelSerializer):
         fields = ('VIN', 'seller', 'make', 'model', 'year', 'price', 'status', 'description', 'created_at', 'images')
 
 class CarImageSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(use_url=True)
+
     class Meta:
         model = CarImage
-        fields = ['id', 'car', 'image']
+        fields = ["id", "car", "image"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request and instance.image and hasattr(instance.image, "url"):
+            data["image"] = request.build_absolute_uri(instance.image.url)
+        return data
 
 class OrderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -71,6 +80,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class AuditLogSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+
     class Meta:
         model = AuditLog
         fields = '__all__'

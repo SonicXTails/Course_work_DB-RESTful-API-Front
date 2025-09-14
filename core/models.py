@@ -38,7 +38,15 @@ class Make(models.Model):
 
 class Model(models.Model):
     make = models.ForeignKey(Make, on_delete=models.CASCADE)
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=50)  # убрали unique=True
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['make', 'name'], name='uniq_model_per_make'),
+        ]
+
+    def __str__(self):
+        return f"{self.make_id}:{self.name}"
 
 class Car(models.Model):
     class Status(models.TextChoices):
@@ -165,10 +173,10 @@ class Review(models.Model):
 
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
-    actor_label = models.CharField(max_length=150, blank=True, null=True)  # ← новое
+    actor_label = models.CharField(max_length=150, blank=True, null=True)
     action = models.CharField(max_length=100)
     table_name = models.CharField(max_length=50)
-    record_id = models.IntegerField(null=True, blank=True)
+    record_id = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     old_data = models.JSONField(null=True, blank=True)
     new_data = models.JSONField(null=True, blank=True)
     action_time = models.DateTimeField(auto_now_add=True, db_index=True)

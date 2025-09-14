@@ -1,4 +1,5 @@
 import requests
+from django.conf import settings
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
@@ -7,13 +8,18 @@ from json import JSONDecodeError
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
 from .forms import ProfileForm
 
 API_URL = "http://localhost:8000/api/v1/"
 REGISTER_URL = f"{API_URL}auth/register/"
 TOKEN_URL = "http://localhost:8000/api-token-auth/"
 ME_URL = f"{API_URL}users/me/"
+MAKES_URL = f"{API_URL}makes/"
+MODELS_URL = f"{API_URL}models/"
+CARS_URL = f"{API_URL}cars/"
+CAR_IMAGES_URL = f"{API_URL}car_images/"
+USER_ROLES_URL = f"{API_URL}admin/user_roles/"
+ROLES_URL = f"{API_URL}admin/roles/"
 
 @csrf_exempt
 def auth_view(request):
@@ -58,23 +64,78 @@ def auth_view(request):
                 request.session['api_token'] = token
                 return redirect("users_dashboard")
             else:
-                error = res.json().get("detail", "Не удалось зарегистрироваться")
+                # если сервер не вернул JSON
+                try:
+                    error = res.json().get("detail", "Не удалось зарегистрироваться")
+                except JSONDecodeError:
+                    error = "Не удалось зарегистрироваться"
 
     return render(request, "dashboard/login.html", {"error": error})
 
 
 def users_dashboard(request):
     token = request.session.get("api_token")
+    headers = {"Authorization": f"Token {token}"} if token else {}
+
     user_data = None
+    cars = []
+    makes_map = {}
+    models_map = {}
+    images_by_car = {}
 
     if token:
-        headers = {"Authorization": f"Token {token}"}
-        res = requests.get(ME_URL, headers=headers)
-        if res.status_code == 200:
-            user_data = res.json()
+        # 1) кто я (для приветствия)
+        r_user = requests.get(ME_URL, headers=headers)
+        if r_user.status_code == 200:
+            user_data = r_user.json()
 
-    return render(request, "dashboard/index.html", {"user": user_data})
+        # 2) справочники
+        try:
+            r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
+            if r_makes.ok:
+                for m in r_makes.json():
+                    makes_map[m["id"]] = m["name"]
+        except Exception:
+            pass
 
+        try:
+            r_models = requests.get(MODELS_URL, headers=headers, timeout=5)
+            if r_models.ok:
+                for m in r_models.json():
+                    models_map[m["id"]] = {"name": m["name"], "make": m["make"]}
+        except Exception:
+            pass
+
+        # 3) ВСЕ машины (без фильтра по seller)
+        try:
+            r_cars = requests.get(CARS_URL, headers=headers, timeout=5)
+            if r_cars.ok:
+                cars = r_cars.json()
+        except Exception:
+            cars = []
+
+        # 4) все картинки
+        try:
+            r_imgs = requests.get(CAR_IMAGES_URL, headers=headers, timeout=5)
+            if r_imgs.ok:
+                for img in r_imgs.json():
+                    car_pk = img.get("car")  # VIN
+                    images_by_car.setdefault(car_pk, []).append(img.get("image"))
+        except Exception:
+            pass
+
+        # 5) обогащаем карточки
+        for c in cars:
+            c["make_name"]  = makes_map.get(c.get("make")) or "—"
+            model_id = c.get("model")
+            c["model_name"] = models_map.get(model_id, {}).get("name", "—"
+            )
+            c["images"]     = images_by_car.get(c.get("VIN")) or []
+
+    return render(request, "dashboard/index.html", {
+        "user": user_data,
+        "cars": cars,
+    })
 
 def logout_view(request):
     request.session.flush()
@@ -87,46 +148,108 @@ def profile_view(request):
         return redirect("auth")
     headers = {"Authorization": f"Token {token}"}
 
-    # 1) Текущий пользователь (теперь в ответе есть is_staff/is_superuser)
     res_user = requests.get(ME_URL, headers=headers)
     if res_user.status_code != 200:
         return redirect("logout")
     me = res_user.json()
 
-    # 2) Определяем роль
-    is_admin = bool(me.get("is_superuser") or me.get("is_staff"))
-    is_analitic = False
-    if not is_admin:
-        # тянем свои user_roles (вьюсет уже ограничивает чужие записи)
-        try:
-            res_links = requests.get(USER_ROLES_URL, headers=headers, timeout=5)
-            links = res_links.json() if res_links.status_code == 200 else []
-        except Exception:
-            links = []
+    # ---- Мои автомобили (с картинками и названиями) ----
+    my_cars, makes_map, models_map, images_by_car = [], {}, {}, {}
 
-        # подтянем список ролей, чтобы сопоставить id -> name
-        role_map = {}
+    # справочники
+    try:
+        r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
+        if r_makes.ok:
+            for m in r_makes.json():
+                makes_map[m["id"]] = m["name"]
+    except Exception:
+        pass
+    try:
+        r_models = requests.get(MODELS_URL, headers=headers, timeout=5)
+        if r_models.ok:
+            for m in r_models.json():
+                models_map[m["id"]] = {"name": m["name"], "make": m["make"]}
+    except Exception:
+        pass
+
+    # мои машины
+    try:
+        url = f"{CARS_URL}?seller={me['id']}"
+        r_cars = requests.get(url, headers=headers, timeout=5)
+        if r_cars.ok:
+            my_cars = r_cars.json()
+            if isinstance(my_cars, list):
+                my_cars = [c for c in my_cars if c.get("seller") == me["id"]]
+    except Exception:
+        my_cars = []
+
+    # картинки
+    try:
+        r_imgs = requests.get(CAR_IMAGES_URL, headers=headers, timeout=5)
+        if r_imgs.ok:
+            for img in r_imgs.json():
+                car_pk = img.get("car")  # VIN
+                images_by_car.setdefault(car_pk, []).append(img.get("image"))
+    except Exception:
+        pass
+
+    # обогащаем
+    default_img = request.build_absolute_uri(settings.MEDIA_URL + "car_images/default.png")
+    for c in my_cars:
+        c["make_name"]  = makes_map.get(c.get("make")) or "—"
+        model_id = c.get("model")
+        c["model_name"] = models_map.get(model_id, {}).get("name", "—")
+        imgs = images_by_car.get(c.get("VIN")) or []
+        c["images"] = imgs if imgs else [default_img]  
+
+    # ---- подтягиваем свои роли (как было) ----
+    role_map = {}
+    my_roles = set()
+    try:
+        res_roles = requests.get(ROLES_URL, headers=headers, timeout=5)
+        if res_roles.ok:
+            for r in res_roles.json():
+                role_map[r["id"]] = r["name"]
+        res_links = requests.get(USER_ROLES_URL, headers=headers, timeout=5)
+        if res_links.ok:
+            for link in res_links.json():
+                if link.get("user") == me.get("id"):
+                    name = role_map.get(link.get("role"))
+                    if name:
+                        my_roles.add(name.lower())
+    except Exception:
+        pass
+
+    is_admin = bool(me.get("is_superuser") or me.get("is_staff") or ('admin' in my_roles))
+    is_analitic = ('analitic' in my_roles)
+
+    if is_admin:
+        users, roles, audit_logs = [], [], []
         try:
-            res_roles = requests.get(ROLES_URL, headers=headers, timeout=5)
-            if res_roles.status_code == 200:
-                for r in res_roles.json():
-                    role_map[r.get("id")] = r.get("name")
+            r_users = requests.get(f"{API_URL}users/", headers=headers, timeout=5)
+            if r_users.ok:
+                users = r_users.json()
+        except Exception:
+            pass
+        try:
+            r_roles = requests.get(ROLES_URL, headers=headers, timeout=5)
+            if r_roles.ok:
+                roles = r_roles.json()
+        except Exception:
+            pass
+        try:
+            r_logs = requests.get(f"{API_URL}admin/audit_logs/?limit=50&ordering=-action_time",
+                                  headers=headers, timeout=5)
+            if r_logs.ok:
+                audit_logs = r_logs.json()
         except Exception:
             pass
 
-        # соберём имена ролей текущего юзера
-        my_roles = {role_map.get(link.get("role")) for link in links if link.get("user") == me.get("id")}
-        my_roles = {r for r in my_roles if r}
-        is_analitic = ("analitic" in {r.lower() for r in my_roles})
-
-    # 3) Ветвление шаблонов
-    if is_admin:
-        # тут твой контекст админа: audit_logs, users, roles и т.д.
-        return render(request, "dashboard/profile_admin.html", {
+        return render(request, "dashboard/admin.html", {
             "user": me,
-            # "audit_logs": ...,
-            # "users": ...,
-            # "roles": ...,
+            "users": users,
+            "roles": roles,
+            "audit_logs": audit_logs,
         })
 
     if is_analitic:
@@ -150,7 +273,7 @@ def profile_view(request):
                 messages.success(request, "Профиль обновлён.")
                 return redirect("profile")
 
-            # Красиво прикрепим ошибки API к форме
+            # аккуратно распакуем ошибки API в форму
             try:
                 data = resp.json()
             except JSONDecodeError:
@@ -174,7 +297,12 @@ def profile_view(request):
             "email":      me.get("email", ""),
         })
 
-    return render(request, "dashboard/profile_user.html", {"user": me, "form": form})
+    return render(request, "dashboard/profile_user.html", {
+        "user": me,
+        "form": form,
+        "my_cars": my_cars,
+        "default_img": default_img,
+    })
 
 
 @login_required
@@ -184,7 +312,7 @@ def profile_user(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Профиль обновлён.")
-            return redirect("profile")  # имя роута см. ниже
+            return redirect("profile")
     else:
         form = ProfileForm(instance=request.user)
     return render(request, "dashboard/profile_user.html", {"form": form})
