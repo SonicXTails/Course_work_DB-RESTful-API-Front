@@ -1,0 +1,20 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="text-center mt-5">
+    <h1 class="fw-bold">
+        {% if user %}
+            Привет,
+            {% if user.first_name or user.last_name %}
+                {{ user.first_name }} {{ user.last_name }}
+            {% else %}
+                {{ user.username }}
+            {% endif %}
+        {% else %}
+            Привет, Гость 👋
+        {% endif %}
+    </h1>
+    <p class="text-muted">Добро пожаловать в систему!</p>
+</div>
+{% endblock %}

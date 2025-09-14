@@ -1,67 +1,80 @@
 {% extends "dashboard/base.html" %}
-{% load static %}
-
-{% block title %}Вход / Регистрация{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'dashboard/css/login_adaptive.css' %}">
-{% endblock %}
+{% block title %}Авторизация{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2 id="form-title">Вход в систему</h2>
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-lg">
+            <div class="card-header text-center bg-dark text-light">
+                <h4>Вход / Регистрация</h4>
+            </div>
+            <div class="card-body">
+                {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
 
-    {% if error %}
-        <p class="error">{{ error }}</p>
-    {% endif %}
+                <ul class="nav nav-tabs mb-3" id="authTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="login-tab" data-bs-toggle="tab" 
+                                data-bs-target="#login" type="button" role="tab">
+                            Вход
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="register-tab" data-bs-toggle="tab" 
+                                data-bs-target="#register" type="button" role="tab">
+                            Регистрация
+                        </button>
+                    </li>
+                </ul>
 
-    <div class="form-wrapper">
-        <!-- Форма логина -->
-        <div id="login-form" class="form-panel active">
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="login">
-                <input type="text" name="username" placeholder="Имя пользователя" required>
-                <input type="password" name="password" placeholder="Пароль" required>
-                <button type="submit" class="login">Войти</button>
-            </form>
-            <p class="toggle-form">У меня нет аккаунта? <a href="#" id="show-register">Зарегистрироваться</a></p>
-        </div>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="login" role="tabpanel">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="login">
+                            <div class="mb-3">
+                                <label for="username_login" class="form-label">Логин</label>
+                                <input type="text" class="form-control" id="username_login" name="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password_login" class="form-label">Пароль</label>
+                                <input type="password" class="form-control" id="password_login" name="password" required>
+                            </div>
+                            <button type="submit" class="btn btn-dark w-100">Войти</button>
+                        </form>
+                    </div>
 
-        <!-- Форма регистрации -->
-        <div id="register-form" class="form-panel">
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="register">
-                <input type="text" name="username" placeholder="Имя пользователя" required>
-                <input type="email" name="email" placeholder="Email" required>
-                <input type="password" name="password" placeholder="Пароль" required>
-                <input type="text" name="first_name" placeholder="Имя">
-                <input type="text" name="last_name" placeholder="Фамилия">
-                <button type="submit" class="register">Зарегистрироваться</button>
-            </form>
-            <p class="toggle-form">Уже есть аккаунт? <a href="#" id="show-login">Войти</a></p>
+                    <div class="tab-pane fade" id="register" role="tabpanel">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="register">
+                            <div class="mb-3">
+                                <label for="username_reg" class="form-label">Логин</label>
+                                <input type="text" class="form-control" id="username_reg" name="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="email_reg" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email_reg" name="email" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password_reg" class="form-label">Пароль</label>
+                                <input type="password" class="form-control" id="password_reg" name="password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="first_name" class="form-label">Имя</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name">
+                            </div>
+                            <div class="mb-3">
+                                <label for="last_name" class="form-label">Фамилия</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name">
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">Зарегистрироваться</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
-<script>
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const formTitle = document.getElementById('form-title');
-
-document.getElementById('show-register').addEventListener('click', function(e) {
-    e.preventDefault();
-    loginForm.classList.remove('active');
-    registerForm.classList.add('active');
-    formTitle.textContent = 'Регистрация';
-});
-
-document.getElementById('show-login').addEventListener('click', function(e) {
-    e.preventDefault();
-    registerForm.classList.remove('active');
-    loginForm.classList.add('active');
-    formTitle.textContent = 'Вход в систему';
-});
-</script>
 {% endblock %}

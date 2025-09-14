@@ -24,7 +24,6 @@ class User(AbstractUser):
 
     @property
     def roles(self):
-        """Возвращает список названий ролей пользователя"""
         return self.userrole_set.values_list('role__name', flat=True)
 
 class Role(models.Model):
@@ -171,4 +170,12 @@ class AuditLog(models.Model):
     record_id = models.IntegerField(null=True, blank=True)
     old_data = models.JSONField(null=True, blank=True)
     new_data = models.JSONField(null=True, blank=True)
-    action_time = models.DateTimeField(auto_now_add=True)
+    action_time = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-action_time']
+        indexes = [
+            models.Index(fields=['-action_time']),
+            models.Index(fields=['table_name']),
+            models.Index(fields=['action']),
+        ]

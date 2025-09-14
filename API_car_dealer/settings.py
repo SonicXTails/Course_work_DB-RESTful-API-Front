@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'core.apps.CoreConfig',
     'rest_framework.authtoken',
+    'corsheaders',
 ]
 
 REST_FRAMEWORK = {
@@ -55,6 +56,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -63,6 +65,23 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8400",
+    "http://localhost:8400",
+]
+
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + ["Authorization", "authorization"]
+
+SWAGGER_SETTINGS = {
+    "USE_SESSION_AUTH": False,
+    "SECURITY_DEFINITIONS": {
+        "Token": {"type": "apiKey", "name": "Authorization", "in": "header", "description": "Token <твой_токен>"},
+    },
+    "SECURITY_REQUIREMENTS": [{"Token": []}],
+    "DEFAULT_API_URL": "http://127.0.0.1:8000/api/v1/",
+}
 
 ROOT_URLCONF = 'API_car_dealer.urls'
 
