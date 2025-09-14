@@ -112,10 +112,10 @@
           <td>{{ log.action_time|naturaltime }}</td>
           <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
           <td>
-            {% if log.actor_label %}
-              {{ log.actor_label }}
-            {% elif log.user_username %}
+            {% if log.user_username %}
               {{ log.user_username }}
+            {% elif log.actor_label %}
+              {{ log.actor_label }}
             {% else %}
               незнакомец
             {% endif %}

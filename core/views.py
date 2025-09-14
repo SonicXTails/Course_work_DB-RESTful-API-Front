@@ -43,17 +43,25 @@ class UserViewSet(ModelViewSet):
             return [IsAdminUser()]
         return [AllowAny()]
 
+    # запрет на create как было
     def create(self, request, *args, **kwargs):
-        return Response(
-            {"detail": "Создание пользователей через этот endpoint запрещено"},
-            status=403
-        )
+        return Response({"detail": "Создание пользователей через этот endpoint запрещено"}, status=403)
 
-    @action(detail=False, methods=["get"], url_path="me", permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["get", "patch", "put"], url_path="me", permission_classes=[IsAuthenticated])
     def me(self, request):
-        """Эндпоинт /users/me/ — возвращает данные текущего юзера"""
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
+        """
+        GET  /users/me/          -> вернуть себя
+        PATCH/PUT /users/me/     -> частично/полностью обновить свои данные
+        """
+        user = request.user
+        if request.method.lower() == "get":
+            return Response(self.get_serializer(user).data)
+
+        partial = request.method.lower() == "patch"
+        serializer = self.get_serializer(user, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ---------------------------

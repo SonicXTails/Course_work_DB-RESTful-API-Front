@@ -14,10 +14,15 @@ def _resolve_actor():
     u = get_current_user()
     if u and getattr(u, "is_authenticated", False):
         roles = set(getattr(u, "roles", []))
+
+        # Админ — как и раньше
         if u.is_superuser or u.is_staff or ('admin' in roles):
             return u, f"admin:{u.username}"
 
-        return None, "незнакомец"
+        # Обычный/аналитик — записываем самого юзера и читаемую метку
+        return u, f"user:{u.username}"
+
+    # Вообще нет пользователя в контексте запроса
     return None, "незнакомец"
 
 def make_json_safe(data: dict) -> dict:

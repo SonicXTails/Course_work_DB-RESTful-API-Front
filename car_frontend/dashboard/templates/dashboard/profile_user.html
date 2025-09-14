@@ -2,8 +2,135 @@
 {% block title %}Профиль{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2>Личный кабинет</h2>
-  <p>Добро пожаловать, {{ user.username }}!</p>
+<div class="container py-5" style="max-width: 860px;">
+
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="mb-0">Личный кабинет</h2>
+    <span class="text-muted">Ваши данные</span>
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="alert alert-{{ m.tags|default:'info' }} mb-3" role="alert">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card border-0 shadow profile-card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <strong>Профиль пользователя</strong>
+      <small class="text-secondary">Добро пожаловать, {{ user.username }}</small>
+    </div>
+
+    <div class="card-body">
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger mb-4" role="alert">
+          <ul class="mb-0">
+            {% for err in form.non_field_errors %}
+              <li>{{ err }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate id="profileForm" class="needs-validation">
+        {% csrf_token %}
+
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="{{ form.username.id_for_label }}">Логин</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+              <div class="invalid-feedback d-block">{{ form.username.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label" for="{{ form.first_name.id_for_label }}">Имя</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}
+              <div class="invalid-feedback d-block">{{ form.first_name.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label" for="{{ form.last_name.id_for_label }}">Фамилия</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}
+              <div class="invalid-feedback d-block">{{ form.last_name.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+              <div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>
+            {% endif %}
+            <div class="form-text text-secondary">Используется для уведомлений и восстановления доступа.</div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" id="saveBtn" class="btn btn-primary">Сохранить</button>
+          <button type="reset" id="resetBtn" class="btn btn-outline-light">Сбросить</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
+
+<style>
+/* тёмная "админская" карточка без base.css */
+.profile-card { background:#1f2a36; color:#e9ecef; }
+.profile-card .card-header { background:#243141; border-bottom:1px solid #2f3c4e; color:#e9ecef; }
+.profile-card .form-label { color:#cfd8dc; }
+.profile-card .form-text { color:#9fb3c8 !important; }
+
+.profile-card input.form-control,
+.profile-card input[type="text"],
+.profile-card input[type="email"] {
+  background:#18222f; color:#f1f5f9; border:1px solid #2b3a4a;
+}
+.profile-card input.form-control:focus,
+.profile-card input[type="text"]:focus,
+.profile-card input[type="email"]:focus {
+  background:#1d2a3a; color:#fff; border-color:#3d5a80; box-shadow:none;
+}
+
+/* чтобы invalid-feedback был читаемым на тёмном фоне */
+.invalid-feedback.d-block { color:#f8d7da; }
+
+/* кнопки */
+.btn-outline-light { border-color:#6c757d; color:#e9ecef; }
+.btn-outline-light:hover { background:#2a3444; color:#fff; }
+</style>
+
+<script>
+  // Блокируем "Сохранить", пока ничего не изменили
+  (function () {
+    const form = document.getElementById('profileForm');
+    const save = document.getElementById('saveBtn');
+    if (!form || !save) return;
+
+    const initial = new FormData(form);
+    function isDirty() {
+      const now = new FormData(form);
+      for (const [k, v] of now.entries()) {
+        if (v !== (initial.get(k) ?? "")) return true;
+      }
+      return false;
+    }
+    function toggle() { save.disabled = !isDirty(); }
+    form.addEventListener('input', toggle);
+    form.addEventListener('change', toggle);
+    form.addEventListener('reset', () => {
+      setTimeout(() => {
+        for (const [k] of initial.entries()) initial.set(k, form.elements[k]?.value ?? "");
+        toggle();
+      }, 0);
+    });
+    toggle();
+  })();
+</script>
 {% endblock %}

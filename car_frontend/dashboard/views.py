@@ -3,6 +3,12 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import localtime
+from json import JSONDecodeError
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
+from .forms import ProfileForm
 
 API_URL = "http://localhost:8000/api/v1/"
 REGISTER_URL = f"{API_URL}auth/register/"
@@ -79,67 +85,106 @@ def profile_view(request):
     token = request.session.get("api_token")
     if not token:
         return redirect("auth")
-
     headers = {"Authorization": f"Token {token}"}
 
+    # 1) Текущий пользователь (теперь в ответе есть is_staff/is_superuser)
     res_user = requests.get(ME_URL, headers=headers)
     if res_user.status_code != 200:
         return redirect("logout")
-    user_data = res_user.json()
+    me = res_user.json()
 
-    roles = []
-    role_id_to_name = {}
-    res_roles_list = requests.get(f"{API_URL}admin/roles/", headers=headers)
-    if res_roles_list.status_code == 200:
-        roles = res_roles_list.json()
-        role_id_to_name = {r["id"]: r["name"] for r in roles}
+    # 2) Определяем роль
+    is_admin = bool(me.get("is_superuser") or me.get("is_staff"))
+    is_analitic = False
+    if not is_admin:
+        # тянем свои user_roles (вьюсет уже ограничивает чужие записи)
+        try:
+            res_links = requests.get(USER_ROLES_URL, headers=headers, timeout=5)
+            links = res_links.json() if res_links.status_code == 200 else []
+        except Exception:
+            links = []
 
-    res_user_roles = requests.get(f"{API_URL}admin/user_roles/", headers=headers)
-    user_role_name = None
-    if res_user_roles.status_code == 200:
-        for link in res_user_roles.json():
-            if link.get("user") == user_data.get("id"):
-                rid = link.get("role")
-                name = role_id_to_name.get(rid)
-                if name:
-                    if name == "admin":
-                        user_role_name = "admin"
-                        break
-                    if not user_role_name:
-                        user_role_name = name
+        # подтянем список ролей, чтобы сопоставить id -> name
+        role_map = {}
+        try:
+            res_roles = requests.get(ROLES_URL, headers=headers, timeout=5)
+            if res_roles.status_code == 200:
+                for r in res_roles.json():
+                    role_map[r.get("id")] = r.get("name")
+        except Exception:
+            pass
 
-    users = []
-    id_to_username = {}
-    res_users = requests.get(f"{API_URL}users/", headers=headers)
-    if res_users.status_code == 200:
-        users = res_users.json()
-        id_to_username = {u["id"]: u["username"] for u in users if isinstance(u.get("id"), int)}
+        # соберём имена ролей текущего юзера
+        my_roles = {role_map.get(link.get("role")) for link in links if link.get("user") == me.get("id")}
+        my_roles = {r for r in my_roles if r}
+        is_analitic = ("analitic" in {r.lower() for r in my_roles})
 
-    audit_logs = []
-    res_logs = requests.get(f"{API_URL}admin/audit_logs/?limit=20&ordering=-action_time", headers=headers)
-    if res_logs.status_code == 200:
-        raw_logs = res_logs.json()
-        for log in raw_logs:
-            dt = parse_datetime(log.get("action_time"))
-            if dt:
-                log["action_time"] = localtime(dt)
-            uid = log.get("user")
-            log["user_username"] = id_to_username.get(uid) if uid is not None else None
-            audit_logs.append(log)
+    # 3) Ветвление шаблонов
+    if is_admin:
+        # тут твой контекст админа: audit_logs, users, roles и т.д.
+        return render(request, "dashboard/profile_admin.html", {
+            "user": me,
+            # "audit_logs": ...,
+            # "users": ...,
+            # "roles": ...,
+        })
 
-    if user_role_name == "admin":
-        template = "dashboard/profile_admin.html"
-        context = {
-            "user": user_data,
-            "audit_logs": audit_logs,
-            "users": users,
-            "roles": roles,
-        }
-    elif user_role_name == "analitic":
-        template = "dashboard/profile_analitic.html"
-        context = {"user": user_data}
+    if is_analitic:
+        return render(request, "dashboard/profile_analitic.html", {"user": me})
+
+    # === Обычный пользователь: форма + PATCH/PUT на /users/me/ ===
+    if request.method == "POST":
+        form = ProfileForm(request.POST)
+        if form.is_valid():
+            payload = {
+                "username":   form.cleaned_data["username"],
+                "first_name": form.cleaned_data["first_name"],
+                "last_name":  form.cleaned_data["last_name"],
+                "email":      form.cleaned_data["email"],
+            }
+            resp = requests.patch(ME_URL, headers={**headers, "Content-Type": "application/json"}, json=payload)
+            if resp.status_code == 405:
+                resp = requests.put(ME_URL, headers={**headers, "Content-Type": "application/json"}, json=payload)
+
+            if resp.status_code in (200, 202):
+                messages.success(request, "Профиль обновлён.")
+                return redirect("profile")
+
+            # Красиво прикрепим ошибки API к форме
+            try:
+                data = resp.json()
+            except JSONDecodeError:
+                data = {"__all__": [resp.text[:300] or "Не удалось сохранить изменения"]}
+
+            attached = False
+            if isinstance(data, dict):
+                for field, errs in data.items():
+                    msgs = errs if isinstance(errs, list) else [str(errs)]
+                    if field in ("non_field_errors", "__all__"):
+                        form.add_error(None, "; ".join(msgs)); attached = True
+                    elif field in form.fields:
+                        form.add_error(field, "; ".join(msgs)); attached = True
+            if not attached:
+                form.add_error(None, f"Ошибка {resp.status_code}: {resp.text[:300]}")
     else:
-        template = "dashboard/profile_user.html"
-        context = {"user": user_data}
+        form = ProfileForm(initial={
+            "username":   me.get("username", ""),
+            "first_name": me.get("first_name", ""),
+            "last_name":  me.get("last_name", ""),
+            "email":      me.get("email", ""),
+        })
 
-    return render(request, template, context)
+    return render(request, "dashboard/profile_user.html", {"user": me, "form": form})
+
+
+@login_required
+def profile_user(request):
+    if request.method == "POST":
+        form = ProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Профиль обновлён.")
+            return redirect("profile")  # имя роута см. ниже
+    else:
+        form = ProfileForm(instance=request.user)
+    return render(request, "dashboard/profile_user.html", {"form": form})
