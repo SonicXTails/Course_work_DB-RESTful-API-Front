@@ -165,6 +165,7 @@ class Review(models.Model):
 
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
+    actor_label = models.CharField(max_length=150, blank=True, null=True)  # ← новое
     action = models.CharField(max_length=100)
     table_name = models.CharField(max_length=50)
     record_id = models.IntegerField(null=True, blank=True)

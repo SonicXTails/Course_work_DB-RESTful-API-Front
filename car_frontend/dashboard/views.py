@@ -108,6 +108,13 @@ def profile_view(request):
                     if not user_role_name:
                         user_role_name = name
 
+    users = []
+    id_to_username = {}
+    res_users = requests.get(f"{API_URL}users/", headers=headers)
+    if res_users.status_code == 200:
+        users = res_users.json()
+        id_to_username = {u["id"]: u["username"] for u in users if isinstance(u.get("id"), int)}
+
     audit_logs = []
     res_logs = requests.get(f"{API_URL}admin/audit_logs/?limit=20&ordering=-action_time", headers=headers)
     if res_logs.status_code == 200:
@@ -116,12 +123,9 @@ def profile_view(request):
             dt = parse_datetime(log.get("action_time"))
             if dt:
                 log["action_time"] = localtime(dt)
+            uid = log.get("user")
+            log["user_username"] = id_to_username.get(uid) if uid is not None else None
             audit_logs.append(log)
-
-    users = []
-    res_users = requests.get(f"{API_URL}users/", headers=headers)
-    if res_users.status_code == 200:
-        users = res_users.json()
 
     if user_role_name == "admin":
         template = "dashboard/profile_admin.html"

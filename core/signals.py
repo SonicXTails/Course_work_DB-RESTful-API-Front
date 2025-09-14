@@ -3,10 +3,22 @@ from django.dispatch import receiver
 from django.forms.models import model_to_dict
 from .models import Role, UserRole, AuditLog, Car, Order, Transaction, Review, CarImage, Make, Model
 from django.contrib.auth import get_user_model
+from core.middleware import get_current_user
 import datetime, decimal
 
 User = get_user_model()
 WATCHED_MODELS = [User, Role, UserRole, Car, Make, Model, CarImage, Order, Transaction, Review]
+
+
+def _resolve_actor():
+    u = get_current_user()
+    if u and getattr(u, "is_authenticated", False):
+        roles = set(getattr(u, "roles", []))
+        if u.is_superuser or u.is_staff or ('admin' in roles):
+            return u, f"admin:{u.username}"
+
+        return None, "незнакомец"
+    return None, "незнакомец"
 
 def make_json_safe(data: dict) -> dict:
     safe_data = {}
@@ -35,15 +47,16 @@ def log_create_update(sender, instance, created, **kwargs):
         old_data = getattr(instance, "_old_data", None)
         new_data = make_json_safe(model_to_dict(instance))
         action = "CREATE" if created else "UPDATE"
-
         if action == "UPDATE" and old_data == new_data:
             return
 
+        actor_user, actor_label = _resolve_actor()
         AuditLog.objects.create(
-            user=None,
+            user=actor_user,
+            **({"actor_label": actor_label} if "actor_label" in [f.name for f in AuditLog._meta.fields] else {}),
             action=action,
             table_name=sender.__name__,
-            record_id=instance.pk,
+            record_id=getattr(instance, "pk", None),
             old_data=old_data,
             new_data=new_data
         )
@@ -52,11 +65,13 @@ def log_create_update(sender, instance, created, **kwargs):
 @receiver(post_delete)
 def log_delete(sender, instance, **kwargs):
     if sender in WATCHED_MODELS:
+        actor_user, actor_label = _resolve_actor()
         AuditLog.objects.create(
-            user=None,
+            user=actor_user,
+            **({"actor_label": actor_label} if "actor_label" in [f.name for f in AuditLog._meta.fields] else {}),
             action="DELETE",
             table_name=sender.__name__,
-            record_id=instance.pk,
+            record_id=getattr(instance, "pk", None),
             old_data=make_json_safe(model_to_dict(instance)),
             new_data=None
         )

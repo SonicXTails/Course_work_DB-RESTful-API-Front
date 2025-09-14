@@ -58,12 +58,20 @@
           <th>Изменения</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="auditBody">
         {% for log in audit_logs %}
         <tr>
           <td>{{ log.action_time|naturaltime }}</td>
           <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
-          <td>{{ log.user }}</td>
+          <td>
+            {% if log.actor_label %}
+              {{ log.actor_label }}
+            {% elif log.user_username %}
+              {{ log.user_username }}
+            {% else %}
+              незнакомец
+            {% endif %}
+          </td>
           <td>
             {% if log.action == "CREATE" or log.action == "POST" %}
               <span class="badge bg-success">POST</span>
@@ -135,17 +143,8 @@
 </div>
 
 <style>
-.btn-swagger:hover { 
-  background:#6ec11f;   /* чуть темнее зелёного */
-  color:#fff; 
-  border-color:#000; 
-}
-
-.btn-redoc:hover { 
-  background:#1f2a36;   /* темнее исходного серо-синего */
-  color:#fff; 
-  border-color:#1a252f;
-}
+.btn-swagger:hover { background:#6ec11f;color:#fff; border-color:#000; }
+.btn-redoc:hover { background:#1f2a36; color:#fff; border-color:#1a252f; }
 
 .btn-swagger { background:#85ea2d; color:#fff; border:2px solid #000; font-weight:600; }
 .btn-swagger .shortcut { color:#000; font-weight:normal; }
@@ -163,7 +162,6 @@
 </style>
 
 <script>
-// Хоткеи не активируются внутри input/textarea/select
 document.addEventListener("keydown", function(e) {
   const tag = (e.target?.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
@@ -179,7 +177,6 @@ document.addEventListener("keydown", function(e) {
 </script>
 
 <script>
-// Клиентский фильтр списка пользователей
 (function () {
   const searchInput = document.getElementById('userSearch');
   const selectEl    = document.getElementById('userSelect');
@@ -232,7 +229,6 @@ document.addEventListener("keydown", function(e) {
 </script>
 
 <script>
-// Назначение роли через админский эндпоинт (нужен токен в сессии)
 const API_BASE  = "http://127.0.0.1:8000/api/v1";
 const API_TOKEN = "{{ request.session.api_token|default:'' }}";
 
@@ -264,23 +260,14 @@ async function apiFetch(path, options = {}) {
       const oldText = submitBtn.textContent;
       submitBtn.textContent = "Назначаю…";
 
-      // ВАЖНО: админский путь
-      let res = await apiFetch("/admin/user_roles/", {
-        method: "POST",
+      const res = await apiFetch("/admin/user_roles/assign/", {
+        method: "PUT",
         body: JSON.stringify({ user: userId, role: roleId })
       });
 
-      // опциональный фолбэк, если у тебя временно остался плоский маршрут
-      if (res.status === 404) {
-        res = await apiFetch("/user_roles/", {
-          method: "POST",
-          body: JSON.stringify({ user: userId, role: roleId })
-        });
-      }
-
       let data = null; try { data = await res.json(); } catch(_) {}
 
-      if (res.ok && data && data.id) {
+      if (res.ok && data && (data.id || (data.user && data.role))) {
         resultDiv.innerHTML = `<div class="alert alert-success">Роль назначена: user=${data.user}, role=${data.role}</div>`;
       } else {
         resultDiv.innerHTML = `<div class="alert alert-danger">Не удалось назначить роль. Код: ${res.status}<br>${data ? JSON.stringify(data) : "Пустой ответ"}</div>`;
@@ -297,4 +284,142 @@ async function apiFetch(path, options = {}) {
   });
 })();
 </script>
+
+<script>
+// ===== АВТО-ОБНОВЛЕНИЕ АУДИТ-ЛОГА =====
+(function () {
+  const auditBody = document.getElementById('auditBody');
+  if (!auditBody) return;
+
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function ago(iso) {
+    const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime())/1000));
+    if (sec < 60) return `${sec} с назад`;
+    const min = Math.floor(sec/60);
+    if (min < 60) return `${min} мин назад`;
+    const hr = Math.floor(min/60);
+    if (hr < 24) return `${hr} ч назад`;
+    const day = Math.floor(hr/24);
+    return `${day} д назад`;
+  }
+
+  function badge(action) {
+    if (action === 'CREATE' || action === 'POST') return '<span class="badge bg-success">POST</span>';
+    if (action === 'UPDATE' || action === 'PUT')  return '<span class="badge bg-warning text-dark">PUT</span>';
+    if (action === 'DELETE')                      return '<span class="badge bg-danger">DELETE</span>';
+    return `<span class="badge bg-secondary">${action}</span>`;
+  }
+
+  function rowHtml(log) {
+    const whenHuman = ago(log.action_time);
+    const whenExact = fmtDate(log.action_time);
+    const actor = log.actor_label || log.user_username || 'незнакомец';
+
+    let changesCell = '';
+    if (log.action === 'UPDATE' || log.action === 'PUT') {
+      const oldData = typeof log.old_data === 'object' ? JSON.stringify(log.old_data) : (log.old_data ?? '');
+      const newData = typeof log.new_data === 'object' ? JSON.stringify(log.new_data) : (log.new_data ?? '');
+      changesCell = `
+        <details data-log-id="${log.id || ''}">
+          <summary>Посмотреть</summary>
+          <div><b>Старое:</b> ${oldData}</div>
+          <div><b>Новое:</b> ${newData}</div>
+        </details>`;
+    } else if (log.action === 'CREATE' || log.action === 'POST') {
+      changesCell = `<span class="text-success">Создано</span>`;
+    } else if (log.action === 'DELETE') {
+      changesCell = `<span class="text-danger">Удалено</span>`;
+    } else {
+      changesCell = '';
+    }
+
+    return `
+      <tr data-log-id="${log.id || ''}">
+        <td>${whenHuman}</td>
+        <td>${whenExact}</td>
+        <td>${actor}</td>
+        <td>${badge(log.action)}</td>
+        <td>${log.table_name ?? ''}</td>
+        <td>${log.record_id ?? ''}</td>
+        <td>${changesCell}</td>
+      </tr>`;
+  }
+
+  function getOpenSet() {
+    const set = new Set();
+    auditBody.querySelectorAll('details[open][data-log-id]').forEach(d => {
+      const id = d.getAttribute('data-log-id');
+      if (id) set.add(id);
+    });
+    return set;
+  }
+  function restoreOpen(set) {
+    auditBody.querySelectorAll('details[data-log-id]').forEach(d => {
+      const id = d.getAttribute('data-log-id');
+      if (id && set.has(id)) d.setAttribute('open', '');
+    });
+  }
+
+  let lastHash = null;
+  let timer = null;
+  let intervalMs = 5000;
+
+  async function fetchLogs() {
+    try {
+      const res = await apiFetch(`/admin/audit_logs/?limit=20&ordering=-action_time`, { method: 'GET' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const hash = JSON.stringify(data.map(x => [x.id, x.action_time, x.action]));
+      if (hash === lastHash) {
+        refreshHumanizedTimes();
+        return;
+      }
+      lastHash = hash;
+
+      const openSet = getOpenSet();
+      const html = data.map(rowHtml).join('');
+      auditBody.innerHTML = html;
+      restoreOpen(openSet);
+    } catch (e) {
+    }
+  }
+
+  function refreshHumanizedTimes() {
+    const rows = auditBody.querySelectorAll('tr');
+    rows.forEach(tr => {
+      const exactCell = tr.children[1];
+      const whenCell  = tr.children[0];
+      if (!exactCell || !whenCell) return;
+      const txt = exactCell.textContent?.trim();
+      if (!txt) return;
+      const [date, time] = txt.split(' ');
+      if (!date || !time) return;
+      const [d,m,y] = date.split('.').map(Number);
+      const [hh,mm,ss] = time.split(':').map(Number);
+      const iso = new Date(y, m-1, d, hh, mm, ss).toISOString();
+      whenCell.textContent = ago(iso);
+    });
+  }
+
+  function loop() {
+    if (document.hidden) return;
+    fetchLogs();
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      fetchLogs();
+    }
+  });
+
+  fetchLogs();
+  timer = setInterval(loop, intervalMs);
+})();
+</script>
+
 {% endblock %}

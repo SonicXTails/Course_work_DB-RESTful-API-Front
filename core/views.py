@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework import status
+from core.viewsets import AuditModelViewSet as ModelViewSet
 
 from drf_yasg.utils import swagger_auto_schema
 
@@ -25,12 +26,12 @@ from core.permissions import IsAdminOrReadOnlyAuthenticated, IsOwnerOrAdminForWr
 # ---------------------------
 # Пользователи
 # ---------------------------
-@method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Auth / Users']))
-@method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Auth / Users']))
-@method_decorator(name='create',         decorator=swagger_auto_schema(tags=['Auth / Users']))
-@method_decorator(name='update',         decorator=swagger_auto_schema(tags=['Auth / Users']))
-@method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Auth / Users']))
-@method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Auth / Users']))
+@method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Admin / User Roles']))
+@method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Admin / User Roles']))
+@method_decorator(name='create',         decorator=swagger_auto_schema(tags=['Admin / User Roles']))
+@method_decorator(name='update',         decorator=swagger_auto_schema(tags=['Admin / User Roles']))
+@method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Admin / User Roles']))
+@method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Admin / User Roles']))
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -88,6 +89,25 @@ class UserRoleViewSet(ModelViewSet):
             return qs
         return qs.filter(user=u.id)
 
+    @action(detail=False, methods=['put'], url_path='assign', permission_classes=[IsAdminUser])
+    def assign(self, request):
+        user_id = request.data.get('user')
+        role_id = request.data.get('role')
+        if not user_id or not role_id:
+            return Response({"detail": "Нужны поля 'user' и 'role'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(pk=user_id)
+            role = Role.objects.get(pk=role_id)
+        except User.DoesNotExist:
+            return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
+        except Role.DoesNotExist:
+            return Response({"detail": "Роль не найдена"}, status=status.HTTP_404_NOT_FOUND)
+
+        UserRole.objects.filter(user=user).delete()
+        link = UserRole.objects.create(user=user, role=role)
+
+        return Response(UserRoleSerializer(link).data, status=status.HTTP_200_OK)
 
 # ---------------------------
 # Каталог марок/моделей
@@ -275,6 +295,7 @@ class RegisterViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     http_method_names = ['post']
+    permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
