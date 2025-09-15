@@ -1,5 +1,5 @@
 {% extends "dashboard/base.html" %}
-{% load static %}
+{% load static humanize %}
 {% block title %}Профиль{% endblock %}
 
 {% block content %}
@@ -65,7 +65,6 @@
             {% if form.email.errors %}
               <div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>
             {% endif %}
-            <div class="form-text text-secondary">Используется для уведомлений и восстановления доступа.</div>
           </div>
         </div>
 
@@ -104,18 +103,22 @@
             </div>
           </div>
           <div class="text-end me-2">
-            <div class="fw-bold">{{ car.price }} ₽</div>
+            <div class="fw-bold">{{ car.price_fmt }} ₽</div>
             <span class="badge
               {% if car.status == 'available' %}bg-success
               {% elif car.status == 'reserved' %}bg-warning text-dark
               {% elif car.status == 'sold' %}bg-danger
               {% else %}bg-secondary{% endif %}">
-              {{ car.status }}
+              {{ car.status_ru }}
             </span>
           </div>
           <div class="d-flex gap-2">
             <button class="btn btn-sm btn-outline-light car-edit">Редактировать</button>
             <button class="btn btn-sm btn-outline-danger car-del">Удалить</button>
+            {% if car.status == 'reserved' %}
+              <button class="btn btn-sm btn-outline-warning seller-cancel"
+                      title="Отменить PENDING-заказ для этого авто">Отменить заказ</button>
+            {% endif %}
           </div>
         </div>
       {% endfor %}
@@ -144,11 +147,15 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Марка</label>
-              <select name="make" class="form-select" required></select>
+              <input name="make_name" class="form-control" list="makesList" placeholder="Введи или выбери марку" required>
+              <datalist id="makesList"></datalist>
+              <div class="form-text">Можно выбрать из списка или ввести новую — мы создадим её автоматически.</div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Модель</label>
-              <select name="model" class="form-select" required disabled></select>
+              <input name="model_name" class="form-control" list="modelsList" placeholder="Введи или выбери модель" required disabled>
+              <datalist id="modelsList"></datalist>
+              <div class="form-text">Список моделей фильтруется по выбранной марке; можно ввести новую.</div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Год</label>
@@ -178,51 +185,53 @@
   </div>
 </div>
 
-<!-- Модалка: РЕДАКТИРОВАТЬ (короткая) -->
+<!-- Модалка: РЕДАКТИРОВАТЬ -->
 <div class="modal fade" id="editCarModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <form class="modal-content" id="carEditForm" style="background:#1f2a36;color:#e9ecef;">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="background:#1f2a36;color:#e9ecef;">
       <div class="modal-header">
         <h5 class="modal-title">Редактировать объявление</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div id="carEditAlert" class="alert d-none" role="alert"></div>
-        <input type="hidden" name="VIN">
-        <div class="row g-3">
-          <div class="col-6">
-            <label class="form-label">Год</label>
-            <input name="year" type="number" class="form-control" min="1950" max="2100" required>
+        <form id="carEditForm" novalidate>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">VIN</label>
+              <input name="VIN" class="form-control" readonly>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Год</label>
+              <input name="year" type="number" class="form-control" min="1950" max="2100" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Цена</label>
+              <input name="price" type="number" step="0.01" min="0" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Статус</label>
+              <select name="status" class="form-select">
+                <option value="available">продаётся</option>
+                <option value="unavailable">недоступно</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Фото (добавить новые, до 10 шт.)</label>
+              <input id="carPhotosEdit" name="photos" type="file" class="form-control" accept="image/*" multiple>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Описание</label>
+              <textarea name="description" class="form-control" rows="3"></textarea>
+            </div>
           </div>
-          <div class="col-6">
-            <label class="form-label">Цена</label>
-            <input name="price" type="number" step="0.01" min="0" class="form-control" required>
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
           </div>
-          <div class="col-12">
-            <label class="form-label">Статус</label>
-            <select name="status" class="form-select">
-              <option value="available">available</option>
-              <option value="reserved">reserved</option>
-              <option value="sold">sold</option>
-              <option value="unavailable">unavailable</option>
-            </select>
-          </div>
-          <div class="col-12">
-            <label class="form-label">Описание</label>
-            <textarea name="description" class="form-control" rows="3"></textarea>
-          </div>
-          <div class="col-12">
-            <label class="form-label">Добавить новые фото (опц.)</label>
-            <input id="carPhotosEdit" type="file" class="form-control" accept="image/*" multiple>
-            <div class="form-text">Текущие фото сохранятся — здесь можно только добавить.</div>
-          </div>
-        </div>
+        </form>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary" type="submit">Сохранить</button>
-        <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
-      </div>
-    </form>
+    </div>
   </div>
 </div>
 
@@ -255,18 +264,25 @@
     const toggle = () => saveBtn.disabled = !isDirty();
     pf.addEventListener('input', toggle);
     pf.addEventListener('change', toggle);
-    pf.addEventListener('reset', () => setTimeout(() => { for (const [k] of init) init.set(k, pf.elements[k]?.value ?? ""); toggle(); }, 0));
+    pf.addEventListener('reset', () => setTimeout(() => {
+      for (const [k] of init) init.set(k, pf.elements[k]?.value ?? "");
+      toggle();
+    }, 0));
     toggle();
   }
 
   // ====== СОЗДАНИЕ ======
-  const modalCreate = document.getElementById('createCarModal');
-  const createForm  = document.getElementById('carCreateForm');
-  const createAlert = document.getElementById('carFormAlert');
-  const makeSel     = createForm?.elements['make'];
-  const modelSel    = createForm?.elements['model'];
-  const photosInput = document.getElementById('carPhotos');
+  const modalCreate   = document.getElementById('createCarModal');
+  const createForm    = document.getElementById('carCreateForm');
+  const createAlert   = document.getElementById('carFormAlert');
+  const photosInput   = document.getElementById('carPhotos');
   const photosPreview = document.getElementById('photosPreview');
+
+  // новые элементы (инпуты + даталисты)
+  const makeInput  = createForm?.elements['make_name'];
+  const modelInput = createForm?.elements['model_name'];
+  const makesDL    = document.getElementById('makesList');
+  const modelsDL   = document.getElementById('modelsList');
 
   const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/i;
 
@@ -277,35 +293,126 @@
   }
   function clearCreateAlert(){ createAlert.className='alert d-none'; createAlert.textContent=''; }
 
+  // кэши справочников
+  let MAKES = [];
+  let MODELS = [];
+  let selectedMakeId = null;
+
+  const norm = s => (s || '').trim().toLowerCase();
+
+  function fillMakesDatalist() {
+    if (!makesDL) return;
+    makesDL.innerHTML = '';
+    for (const m of MAKES) {
+      const opt = document.createElement('option');
+      opt.value = m.name;
+      makesDL.appendChild(opt);
+    }
+  }
+
+  function fillModelsDatalist(makeId) {
+    if (!modelsDL) return;
+    modelsDL.innerHTML = '';
+    if (!makeId) return;
+    for (const md of MODELS.filter(x => String(x.make) === String(makeId))) {
+      const opt = document.createElement('option');
+      opt.value = md.name;
+      modelsDL.appendChild(opt);
+    }
+  }
+
+  function findMakeByName(name) {
+    const n = norm(name);
+    return MAKES.find(m => norm(m.name) === n) || null;
+  }
+  function findModelByNameForMake(modelName, makeId) {
+    const n = norm(modelName);
+    return MODELS.find(md => String(md.make) === String(makeId) && norm(md.name) === n) || null;
+  }
+
+  async function fetchCatalog() {
+    const [mk, md] = await Promise.all([
+      fetch(`${API}/makes/`,  { headers: H_AUTH }),
+      fetch(`${API}/models/`, { headers: H_AUTH }),
+    ]);
+    MAKES  = mk.ok ? await mk.json() : [];
+    MODELS = md.ok ? await md.json() : [];
+  }
+
+  async function ensureMakeId(name) {
+    if (!name) throw new Error('Марка не указана');
+    const exist = findMakeByName(name);
+    if (exist) return exist.id;
+
+    const r = await fetch(`${API}/makes/`, {
+      method: 'POST',
+      headers: { ...H_JSON },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!r.ok) {
+      let msg = r.statusText; try { const d = await r.json(); msg = d.detail || JSON.stringify(d) } catch {}
+      throw new Error('Не удалось создать марку: ' + msg);
+    }
+    const created = await r.json();
+    MAKES.push(created);
+    fillMakesDatalist();
+    return created.id;
+  }
+
+  async function ensureModelId(name, makeId) {
+    if (!name) throw new Error('Модель не указана');
+    const exist = findModelByNameForMake(name, makeId);
+    if (exist) return exist.id;
+
+    const r = await fetch(`${API}/models/`, {
+      method: 'POST',
+      headers: { ...H_JSON },
+      body: JSON.stringify({ name: name.trim(), make: makeId })
+    });
+    if (!r.ok) {
+      let msg = r.statusText; try { const d = await r.json(); msg = d.detail || JSON.stringify(d) } catch {}
+      throw new Error('Не удалось создать модель: ' + msg);
+    }
+    const created = await r.json();
+    MODELS.push(created);
+    fillModelsDatalist(makeId);
+    return created.id;
+  }
+
   modalCreate?.addEventListener('show.bs.modal', async () => {
     try {
-      if (makeSel.options.length) return; // уже загружено
-      const [mk, md] = await Promise.all([
-        fetch(`${API}/makes/`,  { headers: H_AUTH }),
-        fetch(`${API}/models/`, { headers: H_AUTH }),
-      ]);
-      const makes  = mk.ok ? await mk.json() : [];
-      const models = md.ok ? await md.json() : [];
-      makeSel.innerHTML  = '<option value="">— выберите марку —</option>';
-      for (const m of makes) {
-        const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; makeSel.appendChild(o);
+      if (!MAKES.length || !MODELS.length) {
+        await fetchCatalog();
       }
-      makeSel.dataset._models = JSON.stringify(models);
-      modelSel.innerHTML = '<option value="">— выберите модель —</option>'; modelSel.disabled = true;
-      makeSel.addEventListener('change', () => {
-        const all = JSON.parse(makeSel.dataset._models || '[]');
-        const mid = Number(makeSel.value);
-        const filtered = all.filter(x => Number(x.make) === mid);
-        modelSel.innerHTML = '<option value="">— выберите модель —</option>';
-        for (const md of filtered) {
-          const o = document.createElement('option'); o.value = md.id; o.textContent = md.name; modelSel.appendChild(o);
-        }
-        modelSel.disabled = filtered.length === 0;
-      });
-    } catch { alertCreate('danger', 'Не удалось загрузить марки/модели'); }
+      fillMakesDatalist();
+
+      selectedMakeId = null;
+      if (modelInput) { modelInput.value = ''; modelInput.disabled = true; }
+      if (modelsDL) modelsDL.innerHTML = '';
+
+      if (makeInput) {
+        makeInput.oninput = null;
+        makeInput.addEventListener('input', () => {
+          const found = findMakeByName(makeInput.value);
+          selectedMakeId = found ? found.id : null;
+          if (modelInput) modelInput.disabled = !selectedMakeId;
+          fillModelsDatalist(selectedMakeId);
+        });
+      }
+
+      if (modelInput) {
+        modelInput.onfocus = null;
+        modelInput.addEventListener('focus', () => {
+          if (selectedMakeId) fillModelsDatalist(selectedMakeId);
+        });
+      }
+    } catch {
+      alertCreate('danger', 'Не удалось загрузить марки/модели');
+    }
   });
 
   photosInput?.addEventListener('change', () => {
+    if (!photosPreview) return;
     photosPreview.innerHTML = '';
     const files = Array.from(photosInput.files || []);
     if (files.length > 10) { alertCreate('warning', 'До 10 фото'); photosInput.value=''; return; }
@@ -331,49 +438,109 @@
 
   createForm?.addEventListener('submit', async (e) => {
     e.preventDefault(); clearCreateAlert();
-    const vin   = createForm.elements['VIN'].value.trim().toUpperCase();
-    const make  = Number(createForm.elements['make'].value);
-    const model = Number(createForm.elements['model'].value);
-    const year  = Number(createForm.elements['year'].value);
-    const price = String(createForm.elements['price'].value);
-    const desc  = createForm.elements['description'].value.trim();
+
+    const vin       = createForm.elements['VIN'].value.trim().toUpperCase();
+    const makeName  = makeInput?.value.trim();
+    const modelName = modelInput?.value.trim();
+    const year      = Number(createForm.elements['year'].value);
+    const price     = String(createForm.elements['price'].value);
+    const desc      = createForm.elements['description'].value.trim();
 
     if (!VIN_RE.test(vin)) return alertCreate('warning','VIN: 17 символов [A-H J-N P-R Z 0-9], без I/O/Q');
-    if (!make || !model) return alertCreate('warning','Выбери марку и модель');
-
-    const fd = new FormData();
-    fd.append('VIN', vin);
-    fd.append('make', String(make));
-    fd.append('model', String(model));
-    fd.append('year', String(year));
-    fd.append('price', price);
-    fd.append('description', desc);
+    if (!makeName)   return alertCreate('warning','Укажи марку');
+    if (!modelName)  return alertCreate('warning','Укажи модель');
 
     try {
+      const makeId  = await ensureMakeId(makeName);
+      const modelId = await ensureModelId(modelName, makeId);
+
+      const fd = new FormData();
+      fd.append('VIN', vin);
+      fd.append('make', String(makeId));
+      fd.append('model', String(modelId));
+      fd.append('year', String(year));
+      fd.append('price', price);
+      fd.append('description', desc);
+
       const res = await fetch(`${API}/cars/`, { method:'POST', headers: H_AUTH, body: fd });
       let data = null; try { data = await res.json(); } catch {}
-      if (!res.ok) return alertCreate('danger', data?.detail || JSON.stringify(data) || res.statusText);
+      if (!res.ok) {
+        return alertCreate('danger', data?.detail || JSON.stringify(data) || res.statusText);
+      }
 
-      try { await uploadPhotos(vin, Array.from(photosInput.files || [])); } 
+      try { await uploadPhotos(vin, Array.from(photosInput?.files || [])); }
       catch (err) { alertCreate('warning', `Создано, но фото не загрузились: ${String(err)}`); }
 
       alertCreate('success', `Объявление создано (VIN ${vin})`);
-      createForm.reset(); photosPreview.innerHTML='';
+      createForm.reset(); if (photosPreview) photosPreview.innerHTML='';
+      selectedMakeId = null; if (modelsDL) modelsDL.innerHTML=''; if (modelInput) modelInput.disabled = true;
       setTimeout(() => location.reload(), 600);
     } catch (err) {
-      alertCreate('danger', String(err));
+      alertCreate('danger', String(err.message || err));
     }
   });
 
-  // ====== РЕДАКТИРОВАНИЕ / УДАЛЕНИЕ ======
+  // ====== РЕДАКТИРОВАНИЕ / УДАЛЕНИЕ / ОТМЕНА ЗАКАЗА ======
   const list = document.getElementById('myCarsList');
+
+  list?.addEventListener('click', async (e) => {
+    const row = e.target.closest('.list-group-item'); if (!row) return;
+
+    if (e.target.closest('.car-edit')) {
+      openEdit(row);
+      return;
+    }
+
+    if (e.target.closest('.car-del')) {
+      if (!confirm(`Удалить VIN ${row.dataset.vin}?`)) return;
+      try {
+        const r = await fetch(`${API}/cars/${encodeURIComponent(row.dataset.vin)}/`, { method:'DELETE', headers: H_AUTH });
+        if (r.status===204 || r.status===200) row.remove();
+        else {
+          let msg=`Не удалось удалить (${r.status})`; try{ const d=await r.json(); if(d.detail) msg=d.detail }catch{}
+          alert(msg);
+        }
+      } catch (err) { alert(String(err)); }
+      return;
+    }
+
+    // Отмена заказа без формы
+    if (e.target.closest('.seller-cancel')) {
+      const vin = row.dataset.vin;
+      try {
+        const orderId = await findPendingOrderIdByVin(vin);
+        if (!orderId) {
+          alert('Для этой машины не найден PENDING-заказ.');
+          return;
+        }
+        if (!confirm('Отменить заказ? Авто станет доступным, незавершённые платежи отменятся.')) return;
+
+        const r = await fetch(`${API}/orders/${orderId}/seller_cancel/`, {
+          method: 'POST',
+          headers: H_JSON,
+          body: JSON.stringify({}) // без причины
+        });
+        let data = null; try { data = await r.json(); } catch {}
+        if (!r.ok) {
+          alert(data?.detail || `Ошибка ${r.status}`);
+          return;
+        }
+        alert('Заказ отменён.');
+        location.reload();
+      } catch (err) {
+        alert(String(err));
+      }
+    }
+  });
+
+  // Редактирование (оставил как было)
   const modalEdit = document.getElementById('editCarModal');
   const editForm  = document.getElementById('carEditForm');
   const editAlert = document.getElementById('carEditAlert');
   const photosEdit= document.getElementById('carPhotosEdit');
 
-  const editMsg = (kind, txt) => { editAlert.className=`alert alert-${kind}`; editAlert.textContent=txt; editAlert.classList.remove('d-none'); };
-  const editClear=()=>{ editAlert.className='alert d-none'; editAlert.textContent=''; };
+  const editMsg  = (kind, txt) => { editAlert.className=`alert alert-${kind}`; editAlert.textContent=txt; editAlert.classList.remove('d-none'); };
+  const editClear= () => { editAlert.className='alert d-none'; editAlert.textContent=''; };
 
   function openEdit(row){
     editClear();
@@ -386,24 +553,6 @@
     new bootstrap.Modal(modalEdit).show();
   }
 
-  list?.addEventListener('click', async (e) => {
-    const row = e.target.closest('.list-group-item'); if (!row) return;
-
-    if (e.target.closest('.car-edit')) openEdit(row);
-
-    if (e.target.closest('.car-del')) {
-      if (!confirm(`Удалить VIN ${row.dataset.vin}?`)) return;
-      try {
-        const r = await fetch(`${API}/cars/${encodeURIComponent(row.dataset.vin)}/`, { method:'DELETE', headers: H_AUTH });
-        if (r.status===204 || r.status===200) row.remove();
-        else {
-          let msg=`Не удалось удалить (${r.status})`; try{ const d=await r.json(); if(d.detail) msg=d.detail }catch{}
-          alert(msg);
-        }
-      } catch (err) { alert(String(err)); }
-    }
-  });
-
   editForm?.addEventListener('submit', async (e) => {
     e.preventDefault(); editClear();
     const vin = editForm.VIN.value;
@@ -415,12 +564,13 @@
     };
 
     try {
-      const r = await fetch(`${API}/cars/${encodeURIComponent(vin)}/`, { method:'PATCH', headers: H_JSON, body: JSON.stringify(payload) });
+      const r = await fetch(`${API}/cars/${encodeURIComponent(vin)}/`, {
+        method:'PATCH', headers: H_JSON, body: JSON.stringify(payload)
+      });
       if (!r.ok) {
         let msg=r.statusText; try{ const d=await r.json(); msg=d.detail||JSON.stringify(d)}catch{}
         return editMsg('danger', `Не удалось сохранить: ${msg}`);
       }
-      // фото (опц.)
       try { await uploadPhotos(vin, Array.from(photosEdit.files || [])); }
       catch (err) { editMsg('warning', `Сохранено, но фото не загрузились: ${String(err)}`); }
 
@@ -430,6 +580,44 @@
       editMsg('danger', String(err));
     }
   });
+
+  // Поиск pending-ордера по VIN
+  async function findPendingOrderIdByVin(vin) {
+    const tryUrls = [
+      `${API}/orders/?car=${encodeURIComponent(vin)}&status=pending`,
+      `${API}/orders/?car=${encodeURIComponent(vin)}`
+    ];
+    for (const url of tryUrls) {
+      try {
+        const r = await fetch(url, { headers: H_AUTH });
+        if (!r.ok) continue;
+        const data = await r.json();
+        if (Array.isArray(data)) {
+          const found = data.find(o =>
+            ((o.car === vin) || (o.car && (o.car.VIN === vin))) &&
+            String(o.status).toLowerCase() === 'pending'
+          );
+          if (found) return found.id;
+        }
+      } catch {}
+    }
+    try {
+      const r = await fetch(`${API}/orders/`, { headers: H_AUTH });
+      if (r.ok) {
+        const data = await r.json();
+        if (Array.isArray(data)) {
+          const found = data.find(o =>
+            ((o.car === vin) || (o.car && (o.car.VIN === vin))) &&
+            String(o.status).toLowerCase() === 'pending'
+          );
+          if (found) return found.id;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
 })();
 </script>
+
 {% endblock %}

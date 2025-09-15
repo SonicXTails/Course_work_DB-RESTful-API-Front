@@ -77,23 +77,26 @@
                       </div>
                     </div>
                     <div class="text-end">
-                      <div class="display-6 fw-bold price">{{ car.price }} ₽</div>
-                      <span class="badge
-                        {% if car.status == 'available' %}bg-success
-                        {% elif car.status == 'reserved' %}bg-warning text-dark
-                        {% elif car.status == 'sold' %}bg-danger
-                        {% else %}bg-secondary{% endif %}">
-                        {{ car.status }}
-                      </span>
+                      <div class="display-6 fw-bold price">{{ car.price_fmt }} ₽</div>
+                      <div class="mb-2">
+                        <span class="badge
+                          {% if car.status == 'available' %}bg-success
+                          {% elif car.status == 'reserved' %}bg-warning text-dark
+                          {% elif car.status == 'sold' %}bg-danger
+                          {% else %}bg-secondary{% endif %}">
+                          {{ car.status_ru }}
+                        </span>
+                      </div>
+                      <a href="{% url 'car_detail' car.VIN %}" class="btn btn-outline-light btn-sm">Подробнее →</a>
                     </div>
                   </div>
 
                   <dl class="row g-2 small mb-4">
-                    <dt class="col-5 col-md-4 text-soft">Продавец (ID)</dt>
-                    <dd class="col-7 col-md-8 text-plain">{{ car.seller }}</dd>
+                    <dt class="col-5 col-md-4 text-soft">Продавец (Ф.И)</dt>
+                    <dd class="col-7 col-md-8 text-plain">{{ car.seller_full_name }}</dd>
 
                     <dt class="col-5 col-md-4 text-soft">Создано</dt>
-                    <dd class="col-7 col-md-8 text-plain">{{ car.created_at }}</dd>
+                    <dd class="col-7 col-md-8 text-plain">{{ car.created_at_fmt }}</dd>
                   </dl>
 
                   <div class="mt-auto">

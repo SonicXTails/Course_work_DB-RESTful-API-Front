@@ -9,6 +9,9 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework import status
 from core.viewsets import AuditModelViewSet as ModelViewSet
+from django.utils import timezone
+from datetime import timedelta
+from .models import Order, Transaction, Car
 from rest_framework.permissions import BasePermission
 
 from drf_yasg.utils import swagger_auto_schema
@@ -257,6 +260,66 @@ class OrderViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(buyer=self.request.user)
 
+    # ===== НОВОЕ: отмена заказа продавцом =====
+    @action(detail=True, methods=['post'], url_path='seller_cancel',
+            permission_classes=[IsAuthenticated])
+    def seller_cancel(self, request, pk=None):
+        """
+        POST /api/v1/orders/{id}/seller_cancel/
+        Продавец (владелец car.seller) или админ отменяет PENDING-заказ.
+        Возвращает Order.
+        """
+        order = self.get_object()
+        u = request.user
+        is_admin = bool(u and u.is_authenticated and (u.is_superuser or ('admin' in getattr(u, 'roles', []))))
+
+        # Только владелец машины (продавец) или админ
+        if not (is_admin or (order.car and order.car.seller_id == u.id)):
+            return Response({"detail": "Только продавец или админ может отменить заказ."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if order.status != Order.Status.PENDING:
+            return Response({"detail": "Можно отменить только PENDING-заказ."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        reason = (request.data.get('reason') or '').strip()  # опционально, чтобы писать в аудит
+
+        with transaction.atomic():
+            # Повторная проверка под блокировкой
+            ord_locked = (
+                Order.objects.select_for_update()
+                .select_related('car')
+                .get(pk=order.pk)
+            )
+
+            if ord_locked.status != Order.Status.PENDING:
+                return Response({"detail": "Заказ уже не PENDING."},
+                                status=status.HTTP_409_CONFLICT)
+
+            # Меняем статус заказа
+            ord_locked.status = Order.Status.CANCELLED
+            ord_locked.save()  # у тебя по логике save() вернёт машину в AVAILABLE
+
+            # Подвисшие транзакции -> CANCELLED
+            Transaction.objects.filter(
+                order=ord_locked,
+                status=Transaction.Status.PENDING
+            ).update(status=Transaction.Status.CANCELLED)
+
+            # Запишем в аудит, если используешь AuditLog (без жесткой зависимости)
+            try:
+                AuditLog.objects.create(
+                    user=u,
+                    action="order_cancelled_by_seller",
+                    object_type="Order",
+                    object_id=str(ord_locked.pk),
+                    details={"reason": reason} if reason else {}
+                )
+            except Exception:
+                pass
+
+        return Response(OrderSerializer(ord_locked).data, status=status.HTTP_200_OK)
+
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Payments']))
 @method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Payments']))
@@ -280,6 +343,20 @@ class TransactionViewSet(ModelViewSet):
         try:
             with transaction.atomic():
                 order = Order.objects.select_for_update().get(pk=order.pk)
+
+                # --- НОВОЕ: проверка просрочки по order_date ---
+                if order.status == Order.Status.PENDING:
+                    deadline = order.order_date + timedelta(minutes=20)
+                    if timezone.now() >= deadline:
+                        order.status = Order.Status.CANCELLED
+                        order.car.status = Car.Status.AVAILABLE
+                        order.car.save()
+                        order.save()
+                        return Response(
+                            {"detail": "Время резерва истекло. Заказ отменён."},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                # --- конец нового блока ---
 
                 if order.status == Order.Status.CANCELLED:
                     return Response({"detail": "Нельзя провести транзакцию для отменённого заказа"}, status=400)
@@ -318,7 +395,6 @@ class TransactionViewSet(ModelViewSet):
             return Response({"detail": "Заказ не найден"}, status=404)
         except Exception as e:
             return Response({"detail": str(e)}, status=400)
-
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Reviews']))
 @method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Reviews']))

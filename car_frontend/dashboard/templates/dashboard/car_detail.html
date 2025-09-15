@@ -1,0 +1,390 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}Авто {{ vin|default:car.VIN }}{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 1000px;">
+  {% if not_found %}
+    <div class="alert alert-danger">Машина с VIN <span class="font-monospace">{{ vin }}</span> не найдена.</div>
+    <a href="{% url 'users_dashboard' %}" class="btn btn-secondary mt-2">← На главную</a>
+  {% else %}
+    <a href="{% url 'users_dashboard' %}" class="btn btn-outline-secondary mb-3">← К объявлениям 🚗</a>
+
+    <div class="card border-0 shadow-lg" style="background:#1f2a36;color:#e9ecef;">
+      <div class="row g-0">
+        <!-- Левая колонка: карусель -->
+        <div class="col-lg-6 p-3">
+          <div id="carCarousel" class="carousel slide">
+            <div class="carousel-inner">
+              {% for url in car.images %}
+                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                  <img src="{{ url }}" class="d-block w-100" style="object-fit:cover;aspect-ratio:16/9;" alt="Фото">
+                </div>
+              {% endfor %}
+            </div>
+            {% if car.images|length > 1 %}
+              <button class="carousel-control-prev" type="button" data-bs-target="#carCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon"></span>
+                <span class="visually-hidden">Prev</span>
+              </button>
+              <button class="carousel-control-next" type="button" data-bs-target="#carCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon"></span>
+                <span class="visually-hidden">Next</span>
+              </button>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Правая колонка: инфо + действия -->
+        <div class="col-lg-6 p-4">
+          <h3 class="mb-1">{{ car.make_name }} {{ car.model_name }}{% if car.year %} · {{ car.year }}{% endif %}</h3>
+          <div class="mb-3 small text-muted">VIN: <span class="font-monospace">{{ car.VIN }}</span></div>
+
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="h4 mb-0 fw-bold">{{ car.price_fmt }} ₽</span>
+            <span id="statusBadge" class="badge
+              {% if car.status == 'available' %}bg-success
+              {% elif car.status == 'reserved' %}bg-warning text-dark
+              {% elif car.status == 'sold' %}bg-danger
+              {% else %}bg-secondary{% endif %}">
+              {{ car.status_ru }}
+            </span>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <button id="orderBtn"
+                    class="btn btn-primary btn-sm"
+                    data-vin="{{ car.VIN }}"
+                    {% if car.status != 'available' %}disabled{% endif %}>
+              Оформить заказ
+            </button>
+
+            <button id="payBtn" class="btn btn-success btn-sm" disabled>
+              Оплатить
+            </button>
+
+            <div id="orderAlert" class="alert d-none py-1 px-2 mb-0 ms-0 ms-lg-2" role="alert"></div>
+          </div>
+
+          <dl class="row small">
+            <dt class="col-5 text-soft">Продавец (Ф.И)</dt>
+            <dd class="col-7 text-plain">{{ car.seller_full_name }}</dd>
+
+            <dt class="col-5 text-soft">Создано</dt>
+            <dd class="col-7 text-plain">{{ car.created_at_fmt }}</dd>
+          </dl>
+
+          <div class="mt-3">
+            <div class="text-muted mb-1">Описание</div>
+            <div class="p-3 rounded" style="background:#18222f;border:1px solid #2b3a4a;">
+              {{ car.description|default:"—" }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Модалка оплаты -->
+<div class="modal fade" id="payModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#1f2a36;color:#e9ecef;">
+      <div class="modal-header">
+        <h5 class="modal-title">Оплата</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        <div id="payStepInit">
+          <p class="mb-2">Сумма к оплате: <b><span id="payAmount"></span> ₽</b></p>
+          <p class="text-secondary mb-3">Имитируем платёж без ввода карточных данных.</p>
+          <button id="startPay" class="btn btn-success w-100">Перейти к оплате</button>
+        </div>
+
+        <div id="payStepProcessing" class="d-none text-center">
+          <div class="spinner-border" role="status"></div>
+          <p class="mt-3 mb-0">Обработка платежа…</p>
+        </div>
+
+        <div id="payStep3DS" class="d-none">
+          <p class="mb-2">3-D Secure (симуляция)</p>
+          <p class="text-secondary">Нажмите «Подтвердить», чтобы завершить.</p>
+          <div class="d-flex gap-2">
+            <button id="confirm3ds" class="btn btn-primary flex-grow-1">Подтвердить</button>
+            <button id="cancel3ds" class="btn btn-outline-secondary flex-grow-1">Отмена</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .card { background:#1f2a36; color:#e9ecef; }
+  .text-muted { color:#c8d3e0!important; }
+  .text-soft { color:#aebacf!important; }
+  .text-plain { color:#eef3f9!important; }
+  /* Фолбэк-модалка без Bootstrap JS */
+  .modal.manual-show { display: block !important; }
+  .modal-backdrop.manual { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1050; }
+</style>
+
+<script>
+(function () {
+  const API   = "http://127.0.0.1:8000/api/v1";
+  const TOKEN = "{{ request.session.api_token|default:'' }}";
+  const HJSON = { "Authorization": "Token " + TOKEN, "Content-Type": "application/json" };
+
+  const vin          = "{{ car.VIN }}";
+  const orderBtn     = document.getElementById('orderBtn');
+  const payBtn       = document.getElementById('payBtn');
+  const alertBox     = document.getElementById('orderAlert');
+  const statusBadge  = document.getElementById('statusBadge');
+
+  const payModalEl   = document.getElementById('payModal');
+  const payAmountEl  = document.getElementById('payAmount');
+  const stepInit     = document.getElementById('payStepInit');
+  const stepProc     = document.getElementById('payStepProcessing');
+  const step3ds      = document.getElementById('payStep3DS');
+  const startPayBtn  = document.getElementById('startPay');
+  const confirm3dsBtn= document.getElementById('confirm3ds');
+  const cancel3dsBtn = document.getElementById('cancel3ds');
+
+  // Инициализация Bootstrap Modal, если доступен
+  let payModal = null;
+  const hasBootstrap = !!(window.bootstrap && typeof bootstrap.Modal === 'function');
+  if (hasBootstrap && payModalEl) {
+    payModal = new bootstrap.Modal(payModalEl);
+  }
+
+  // Фолбэк: ручное открытие/закрытие модалки
+  let manualBackdrop = null;
+  function openModalFallback() {
+    if (!payModalEl) return;
+    payModalEl.classList.add('manual-show', 'show');
+    payModalEl.removeAttribute('aria-hidden');
+    payModalEl.style.display = 'block';
+    manualBackdrop = document.createElement('div');
+    manualBackdrop.className = 'modal-backdrop manual';
+    document.body.appendChild(manualBackdrop);
+    document.body.classList.add('modal-open');
+  }
+  function closeModalFallback() {
+    if (!payModalEl) return;
+    payModalEl.classList.remove('manual-show', 'show');
+    payModalEl.setAttribute('aria-hidden', 'true');
+    payModalEl.style.display = 'none';
+    if (manualBackdrop) {
+      manualBackdrop.remove();
+      manualBackdrop = null;
+    }
+    document.body.classList.remove('modal-open');
+  }
+  function openPayModal() { hasBootstrap ? payModal.show() : openModalFallback(); }
+  function closePayModal() { hasBootstrap ? payModal.hide() : closeModalFallback(); }
+
+  let currentOrder = null;
+
+  function showAlert(kind, text) {
+    alertBox.className = `alert alert-${kind} py-1 px-2 mb-0`;
+    alertBox.textContent = text;
+    alertBox.classList.remove('d-none');
+  }
+  function hideAlert(){
+    alertBox.className='alert d-none py-1 px-2 mb-0';
+    alertBox.textContent='';
+  }
+
+  function setStatusReservedUI() {
+    statusBadge.className = 'badge bg-warning text-dark';
+    statusBadge.textContent = 'зарезервировано';
+    orderBtn.disabled = true;
+    orderBtn.textContent = 'Заказ создан';
+  }
+  function setStatusSoldUI() {
+    statusBadge.className = 'badge bg-danger';
+    statusBadge.textContent = 'продано';
+    orderBtn.disabled = true;
+    payBtn.disabled = true;
+  }
+
+  function enablePayButton(order) {
+    currentOrder = order;
+    if ((order?.status || '').toLowerCase() === 'pending') {
+      payBtn.disabled = false;
+      payBtn.removeAttribute('disabled');
+      payBtn.classList.remove('disabled');
+    }
+  }
+
+  function extractApiError(data, fallback='Ошибка запроса') {
+    if (!data) return fallback;
+    if (typeof data === 'string') return data;
+    if (data.detail) return Array.isArray(data.detail) ? data.detail[0] : String(data.detail);
+    if (data.non_field_errors) return Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : String(data.non_field_errors);
+    for (const key of ['car','buyer','amount','status','message','error']) {
+      if (data[key]) return Array.isArray(data[key]) ? data[key][0] : String(data[key]);
+    }
+    for (const v of Object.values(data)) {
+      if (typeof v === 'string') return v;
+      if (Array.isArray(v) && v.length && typeof v[0] === 'string') return v[0];
+    }
+    try { return JSON.stringify(data); } catch { return fallback; }
+  }
+
+  async function createOrder() {
+    const r = await fetch(`${API}/orders/`, {
+      method: 'POST',
+      headers: HJSON,
+      body: JSON.stringify({ car: vin })
+    });
+    const data = await r.json().catch(()=>null);
+    if (!r.ok) {
+      const msg = extractApiError(data, r.statusText || 'Не удалось оформить заказ');
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  async function fetchMyPendingOrder() {
+    if (!TOKEN) return null;
+    const r = await fetch(`${API}/orders/`, { headers: HJSON });
+    const list = await r.json().catch(()=>[]);
+    if (!Array.isArray(list)) return null;
+    return list.find(o => String(o.car) === String(vin) && o.status === 'pending') || null;
+  }
+
+  // --- новые функции для авто-отмены ---
+  async function pingCancelExpired() {
+    try {
+      await fetch(`${API}/orders/cancel_expired/`, {
+        method: 'POST',
+        headers: HJSON,
+        body: JSON.stringify({})
+      });
+    } catch {}
+  }
+
+  async function refreshMyPendingOrder() {
+    await pingCancelExpired();
+    return await fetchMyPendingOrder();
+  }
+  // -------------------------------------
+
+  // Оформить заказ
+  orderBtn?.addEventListener('click', async () => {
+    hideAlert();
+    if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оформить заказ.'); return; }
+    if (orderBtn.disabled) return;
+
+    orderBtn.disabled = true;
+    const prevText = orderBtn.textContent;
+    orderBtn.textContent = 'Оформляем…';
+
+    try {
+      const order = await createOrder();
+      setStatusReservedUI();
+      enablePayButton(order);
+      showAlert('success', 'Заказ оформлен. Машина зарезервирована. Можно оплачивать.');
+    } catch (e) {
+      const msg = String(e && e.message ? e.message : e);
+      if (msg.toLowerCase().includes('собственн') || msg.toLowerCase().includes('нельзя сделать заказ')) {
+        showAlert('info', 'Вы не можете купить свой собственный автомобиль.');
+      } else {
+        showAlert('danger', msg);
+      }
+      orderBtn.disabled = false;
+      orderBtn.textContent = prevText;
+    }
+  });
+
+  function resetPayModal() {
+    stepInit.classList.remove('d-none');
+    stepProc.classList.add('d-none');
+    step3ds.classList.add('d-none');
+  }
+
+  // Оплатить
+  payBtn?.addEventListener('click', async () => {
+    hideAlert();
+    if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оплатить.'); return; }
+
+    if (!currentOrder) {
+      try { currentOrder = await refreshMyPendingOrder(); } catch(e) { console.error(e); }
+    }
+    if (!currentOrder) {
+      showAlert('warning','Бронь истекла и заказ отменён. Оформите заказ заново.');
+      statusBadge.className = 'badge bg-success';
+      statusBadge.textContent = 'продаётся';
+      orderBtn.disabled = false;
+      orderBtn.textContent = 'Оформить заказ';
+      payBtn.disabled = true;
+      return;
+    }
+    if (currentOrder.status !== 'pending') {
+      showAlert('warning','Этот заказ уже не ожидает оплаты.');
+      return;
+    }
+
+    payAmountEl.textContent = (currentOrder.total_amount ?? '').toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    resetPayModal();
+    openPayModal();
+  });
+
+  // 3DS симуляция
+  startPayBtn?.addEventListener('click', () => {
+    stepInit.classList.add('d-none');
+    stepProc.classList.remove('d-none');
+    setTimeout(() => {
+      stepProc.classList.add('d-none');
+      step3ds.classList.remove('d-none');
+    }, 1200);
+  });
+
+  cancel3dsBtn?.addEventListener('click', () => {
+    closePayModal();
+    showAlert('secondary', 'Оплата отменена.');
+  });
+
+  confirm3dsBtn?.addEventListener('click', async () => {
+    try {
+      step3ds.classList.add('d-none');
+      stepProc.classList.remove('d-none');
+
+      const payload = { order: currentOrder.id, amount: currentOrder.total_amount };
+      const r = await fetch(`${API}/transactions/`, { method: 'POST', headers: HJSON, body: JSON.stringify(payload) });
+      const data = await r.json().catch(()=>null);
+
+      if (!r.ok) {
+        closePayModal();
+        showAlert('danger', data?.detail || r.statusText || 'Оплата не прошла');
+        payBtn.disabled = false;
+        return;
+      }
+
+      closePayModal();
+      showAlert('success', 'Оплата прошла. Спасибо!');
+      setStatusSoldUI();
+    } catch (e) {
+      closePayModal();
+      showAlert('danger', String(e));
+      payBtn.disabled = false;
+      console.error(e);
+    }
+  });
+
+  // Авто-восстановление состояния при загрузке
+  (async () => {
+    try {
+      if (!TOKEN) return;
+      const pending = await fetchMyPendingOrder();
+      if (pending) {
+        setStatusReservedUI();
+        enablePayButton(pending);
+      }
+    } catch (e) { console.error(e); }
+  })();
+})();
+</script>
+
+{% endblock %}

@@ -1,9 +1,11 @@
 import requests
+from django.contrib.humanize.templatetags.humanize import intcomma
 from django.conf import settings
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import localtime
+from decimal import Decimal
 from json import JSONDecodeError
 
 from django.contrib import messages
@@ -20,6 +22,15 @@ CARS_URL = f"{API_URL}cars/"
 CAR_IMAGES_URL = f"{API_URL}car_images/"
 USER_ROLES_URL = f"{API_URL}admin/user_roles/"
 ROLES_URL = f"{API_URL}admin/roles/"
+
+STATUS_MAP_RU = {
+    "available": "продаётся",
+    "reserved": "зарезервировано",
+    "sold": "продано",
+    "unavailable": "недоступно",
+}
+def status_ru(val: str) -> str:
+    return STATUS_MAP_RU.get((val or "").lower(), val or "—")
 
 @csrf_exempt
 def auth_view(request):
@@ -124,13 +135,27 @@ def users_dashboard(request):
         except Exception:
             pass
 
-        # 5) обогащаем карточки
         for c in cars:
-            c["make_name"]  = makes_map.get(c.get("make")) or "—"
-            model_id = c.get("model")
-            c["model_name"] = models_map.get(model_id, {}).get("name", "—"
-            )
-            c["images"]     = images_by_car.get(c.get("VIN")) or []
+                    c["make_name"]  = makes_map.get(c.get("make")) or "—"
+                    model_id = c.get("model")
+                    c["model_name"] = models_map.get(model_id, {}).get("name", "—")
+                    c["images"]     = images_by_car.get(c.get("VIN")) or []
+                    c["status_ru"]  = status_ru(c.get("status"))
+
+                    # --- формат даты ---
+                    dt = parse_datetime(c.get("created_at") or "")
+                    if dt:
+                        c["created_at_fmt"] = localtime(dt).strftime("%d.%m.%Y %H:%M")
+                    else:
+                        c["created_at_fmt"] = "—"
+
+                    # --- формат цены: 1 000 000 без .00 ---
+                    try:
+                        price_dec = Decimal(str(c.get("price", "0")))
+                        price_int = int(price_dec)  # отбросим .00
+                        c["price_fmt"] = f"{price_int:,}".replace(",", " ")
+                    except Exception:
+                        c["price_fmt"] = str(c.get("price", "0"))
 
     return render(request, "dashboard/index.html", {
         "user": user_data,
@@ -200,7 +225,15 @@ def profile_view(request):
         model_id = c.get("model")
         c["model_name"] = models_map.get(model_id, {}).get("name", "—")
         imgs = images_by_car.get(c.get("VIN")) or []
-        c["images"] = imgs if imgs else [default_img]  
+        c["images"] = imgs if imgs else [default_img]
+        c["status_ru"] = status_ru(c.get("status"))
+
+        # формат цены (как в index)
+        try:
+            price_int = int(float(c.get("price", 0)))
+            c["price_fmt"] = intcomma(price_int).replace(",", " ")
+        except Exception:
+            c["price_fmt"] = c.get("price", "")
 
     # ---- подтягиваем свои роли (как было) ----
     role_map = {}
@@ -273,7 +306,6 @@ def profile_view(request):
                 messages.success(request, "Профиль обновлён.")
                 return redirect("profile")
 
-            # аккуратно распакуем ошибки API в форму
             try:
                 data = resp.json()
             except JSONDecodeError:
@@ -304,7 +336,6 @@ def profile_view(request):
         "default_img": default_img,
     })
 
-
 @login_required
 def profile_user(request):
     if request.method == "POST":
@@ -316,3 +347,72 @@ def profile_user(request):
     else:
         form = ProfileForm(instance=request.user)
     return render(request, "dashboard/profile_user.html", {"form": form})
+
+
+def car_detail(request, vin):
+    token = request.session.get("api_token")
+    headers = {"Authorization": f"Token {token}"} if token else {}
+    makes_map, models_map, images_by_car = {}, {}, {}
+    car, not_found = None, False
+
+    # справочники
+    try:
+        r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
+        if r_makes.ok:
+            for m in r_makes.json():
+                makes_map[m["id"]] = m["name"]
+    except Exception:
+        pass
+    try:
+        r_models = requests.get(MODELS_URL, headers=headers, timeout=5)
+        if r_models.ok:
+            for m in r_models.json():
+                models_map[m["id"]] = {"name": m["name"], "make": m["make"]}
+    except Exception:
+        pass
+    try:
+        r_imgs = requests.get(CAR_IMAGES_URL, headers=headers, timeout=5)
+        if r_imgs.ok:
+            for img in r_imgs.json():
+                images_by_car.setdefault(img.get("car"), []).append(img.get("image"))
+    except Exception:
+        pass
+
+    # сама машина
+    try:
+        r = requests.get(f"{CARS_URL}{vin}/", headers=headers, timeout=5)
+        if r.ok:
+            car = r.json()
+        else:
+            not_found = True
+    except Exception:
+        not_found = True
+
+    if car:
+        car["make_name"]  = makes_map.get(car.get("make")) or "—"
+        model_id = car.get("model")
+        car["model_name"] = models_map.get(model_id, {}).get("name", "—")
+        car["images"]     = images_by_car.get(car.get("VIN")) or []
+
+        # ФИО продавца (если добавил в CarSerializer — просто car['seller_full_name'] уже будет)
+        # fallback: покажем username если first/last пустые
+        first = car.get("seller_first_name") or ""
+        last  = car.get("seller_last_name") or ""
+        car["seller_full_name"] = (f"{first} {last}".strip() or str(car.get("seller")))
+
+        # Дата
+        dt = parse_datetime(car.get("created_at") or "")
+        car["created_at_fmt"] = localtime(dt).strftime("%d.%m.%Y %H:%M") if dt else "—"
+
+        # Цена
+        try:
+            price_int = int(Decimal(str(car.get("price", "0"))))
+            car["price_fmt"] = f"{price_int:,}".replace(",", " ")
+        except Exception:
+            car["price_fmt"] = str(car.get("price", "0"))
+
+    return render(request, "dashboard/car_detail.html", {
+        "car": car,
+        "vin": vin,
+        "not_found": not_found,
+    })

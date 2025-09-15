@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.utils import timezone
+from datetime import timedelta
 from .models import *
 
 class UserSerializer(serializers.ModelSerializer):
@@ -33,10 +35,21 @@ class ModelSerializer(serializers.ModelSerializer):
 
 class CarSerializer(serializers.ModelSerializer):
     images = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
+    seller_first_name = serializers.CharField(source='seller.first_name', read_only=True)
+    seller_last_name  = serializers.CharField(source='seller.last_name',  read_only=True)
+    seller_full_name  = serializers.SerializerMethodField()
+
+    def get_seller_full_name(self, obj):
+        if obj and obj.seller:
+            full = f"{obj.seller.first_name or ''} {obj.seller.last_name or ''}".strip()
+            return full or obj.seller.username
+        return ""
 
     class Meta:
         model = Car
-        fields = ('VIN', 'seller', 'make', 'model', 'year', 'price', 'status', 'description', 'created_at', 'images')
+        fields = ('VIN','seller','make','model','year','price','status','description','created_at','images',
+                  'seller_first_name','seller_last_name','seller_full_name')
+
 
 class CarImageSerializer(serializers.ModelSerializer):
     image = serializers.ImageField(use_url=True)
@@ -58,13 +71,19 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['total_amount']
 
+    def get_expires_in_seconds(self, obj):
+        # считаем по order_date + 20 минут
+        if obj.status != Order.Status.PENDING or not obj.order_date:
+            return None
+        deadline = obj.order_date + timedelta(minutes=20)
+        delta = (deadline - timezone.now()).total_seconds()
+        return max(0, int(delta))
+
     def create(self, validated_data):
         car = validated_data.get("car")
-
         buyer = validated_data.get("buyer")
         if buyer and car and buyer == car.seller:
             raise serializers.ValidationError("Нельзя сделать заказ на собственную машину")
-
         validated_data["total_amount"] = car.price
         return super().create(validated_data)
 
