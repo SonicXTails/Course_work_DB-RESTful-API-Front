@@ -38,7 +38,7 @@ class Make(models.Model):
 
 class Model(models.Model):
     make = models.ForeignKey(Make, on_delete=models.CASCADE)
-    name = models.CharField(max_length=50)  # убрали unique=True
+    name = models.CharField(max_length=50)
 
     class Meta:
         constraints = [

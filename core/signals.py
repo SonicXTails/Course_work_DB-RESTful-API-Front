@@ -16,14 +16,11 @@ def _resolve_actor():
     if u and getattr(u, "is_authenticated", False):
         roles = set(getattr(u, "roles", []))
 
-        # Админ — как и раньше
         if u.is_superuser or u.is_staff or ('admin' in roles):
             return u, f"admin:{u.username}"
 
-        # Обычный/аналитик — записываем самого юзера и читаемую метку
         return u, f"user:{u.username}"
 
-    # Вообще нет пользователя в контексте запроса
     return None, "незнакомец"
 
 def make_json_safe(data: dict) -> dict:
@@ -97,25 +94,18 @@ def assign_admin_role(sender, instance, created, **kwargs):
 def make_json_safe(data: dict) -> dict:
     safe_data = {}
     for k, v in data.items():
-        # даты
         if isinstance(v, (datetime.datetime, datetime.date, datetime.time)):
             safe_data[k] = v.isoformat()
-        # деньги/десятичные
         elif isinstance(v, decimal.Decimal):
             safe_data[k] = float(v)
-        # UUID
         elif isinstance(v, uuid.UUID):
             safe_data[k] = str(v)
-        # Django File/ImageField
         elif isinstance(v, FieldFile):
-            # сохраняем только путь/имя файла; если файла нет — None
             safe_data[k] = v.name or None
-        # bytes (вдруг где-то окажется)
         elif isinstance(v, (bytes, bytearray, memoryview)):
             safe_data[k] = v.decode('utf-8', errors='replace')
         else:
             try:
-                # на случай ленивых обёрток — приведём к plain типам
                 safe_data[k] = v if isinstance(v, (int, float, str, bool, type(None), list, dict)) else str(v)
             except Exception:
                 safe_data[k] = str(v)

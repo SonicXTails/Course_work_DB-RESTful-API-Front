@@ -1,4 +1,3 @@
-# core/api_urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -20,7 +19,6 @@ root.register(r'transactions', TransactionViewSet, basename='transaction')
 root.register(r'reviews', ReviewViewSet, basename='review')
 root.register(r'audit_logs', AuditLogViewSet, basename='auditlog')
 
-# Группы
 public = DefaultRouter()
 public.register(r'cars', CarViewSet, basename='car-public')
 public.register(r'car_images', CarImageViewSet, basename='carimage-public')

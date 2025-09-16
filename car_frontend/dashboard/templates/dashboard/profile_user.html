@@ -518,7 +518,7 @@
         const r = await fetch(`${API}/orders/${orderId}/seller_cancel/`, {
           method: 'POST',
           headers: H_JSON,
-          body: JSON.stringify({}) // без причины
+          body: JSON.stringify({})
         });
         let data = null; try { data = await r.json(); } catch {}
         if (!r.ok) {
@@ -533,7 +533,7 @@
     }
   });
 
-  // Редактирование (оставил как было)
+  // Редактирование
   const modalEdit = document.getElementById('editCarModal');
   const editForm  = document.getElementById('carEditForm');
   const editAlert = document.getElementById('carEditAlert');

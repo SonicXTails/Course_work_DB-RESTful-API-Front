@@ -72,7 +72,6 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['total_amount']
 
     def get_expires_in_seconds(self, obj):
-        # считаем по order_date + 20 минут
         if obj.status != Order.Status.PENDING or not obj.order_date:
             return None
         deadline = obj.order_date + timedelta(minutes=20)
@@ -97,6 +96,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = '__all__'
+        read_only_fields = ['author', 'created_at']
 
 class AuditLogSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)

@@ -53,7 +53,6 @@ class UserViewSet(ModelViewSet):
             return [IsSuperuserOrRoleAdmin()]
         return [AllowAny()]
 
-    # запрет на create как было
     def create(self, request, *args, **kwargs):
         return Response({"detail": "Создание пользователей через этот endpoint запрещено"}, status=403)
 
@@ -108,7 +107,7 @@ class UserRoleViewSet(ModelViewSet):
         return qs.filter(user=u.id)
 
     @action(detail=False, methods=['put'], url_path='assign',
-            permission_classes=[IsSuperuserOrRoleAdmin])   # было IsAdminUser
+            permission_classes=[IsSuperuserOrRoleAdmin])
     def assign(self, request):
         user_id = request.data.get('user')
         role_id = request.data.get('role')
@@ -176,8 +175,8 @@ class CarViewSet(ModelViewSet):
         detail=True,
         methods=['post'],
         url_path='images',
-        parser_classes=[MultiPartParser],         # ждём multipart/form-data
-        permission_classes=[IsAuthenticated],     # можно ужесточить, если нужно
+        parser_classes=[MultiPartParser],
+        permission_classes=[IsAuthenticated],
     )
     def upload_images(self, request, pk=None):
         """
@@ -185,13 +184,11 @@ class CarViewSet(ModelViewSet):
         Принимает несколько файлов под ключом 'files' (или одиночный 'image').
         Возвращает список созданных CarImage с абсолютными URL.
         """
-        # Найдём машину по VIN (VIN у тебя — primary_key, так что pk — это VIN)
         try:
             car = Car.objects.get(pk=pk)
         except Car.DoesNotExist:
             return Response({"detail": "Машина не найдена"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Соберём файлы: либо files[], либо один image
         files = request.FILES.getlist('files')
         if not files and 'image' in request.FILES:
             files = [request.FILES['image']]
@@ -200,7 +197,6 @@ class CarViewSet(ModelViewSet):
             return Response({"detail": "Файлы не переданы. Используй поле 'files' (множественное) или 'image'."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Твой вставляемый блок: создаём записи и сериализуем с request в контексте
         created = []
         for f in files:
             if f.size > 8 * 1024 * 1024:
@@ -218,8 +214,6 @@ class CarViewSet(ModelViewSet):
                     {"detail": f"Недопустимое фото {getattr(f,'name','')}: только горизонтальные ≥800×450, соотношение ≥1.3"},
                     status=400
                 )
-
-            # Сбросить курсор файла для последующей записи
             try:
                 f.seek(0)
             except Exception:
@@ -260,7 +254,6 @@ class OrderViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(buyer=self.request.user)
 
-    # ===== НОВОЕ: отмена заказа продавцом =====
     @action(detail=True, methods=['post'], url_path='seller_cancel',
             permission_classes=[IsAuthenticated])
     def seller_cancel(self, request, pk=None):
@@ -273,7 +266,6 @@ class OrderViewSet(ModelViewSet):
         u = request.user
         is_admin = bool(u and u.is_authenticated and (u.is_superuser or ('admin' in getattr(u, 'roles', []))))
 
-        # Только владелец машины (продавец) или админ
         if not (is_admin or (order.car and order.car.seller_id == u.id)):
             return Response({"detail": "Только продавец или админ может отменить заказ."},
                             status=status.HTTP_403_FORBIDDEN)
@@ -282,10 +274,9 @@ class OrderViewSet(ModelViewSet):
             return Response({"detail": "Можно отменить только PENDING-заказ."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        reason = (request.data.get('reason') or '').strip()  # опционально, чтобы писать в аудит
+        reason = (request.data.get('reason') or '').strip()
 
         with transaction.atomic():
-            # Повторная проверка под блокировкой
             ord_locked = (
                 Order.objects.select_for_update()
                 .select_related('car')
@@ -298,15 +289,13 @@ class OrderViewSet(ModelViewSet):
 
             # Меняем статус заказа
             ord_locked.status = Order.Status.CANCELLED
-            ord_locked.save()  # у тебя по логике save() вернёт машину в AVAILABLE
+            ord_locked.save()
 
-            # Подвисшие транзакции -> CANCELLED
             Transaction.objects.filter(
                 order=ord_locked,
                 status=Transaction.Status.PENDING
             ).update(status=Transaction.Status.CANCELLED)
 
-            # Запишем в аудит, если используешь AuditLog (без жесткой зависимости)
             try:
                 AuditLog.objects.create(
                     user=u,
@@ -344,7 +333,6 @@ class TransactionViewSet(ModelViewSet):
             with transaction.atomic():
                 order = Order.objects.select_for_update().get(pk=order.pk)
 
-                # --- НОВОЕ: проверка просрочки по order_date ---
                 if order.status == Order.Status.PENDING:
                     deadline = order.order_date + timedelta(minutes=20)
                     if timezone.now() >= deadline:
@@ -356,7 +344,6 @@ class TransactionViewSet(ModelViewSet):
                             {"detail": "Время резерва истекло. Заказ отменён."},
                             status=status.HTTP_400_BAD_REQUEST
                         )
-                # --- конец нового блока ---
 
                 if order.status == Order.Status.CANCELLED:
                     return Response({"detail": "Нельзя провести транзакцию для отменённого заказа"}, status=400)

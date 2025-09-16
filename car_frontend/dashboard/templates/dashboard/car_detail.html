@@ -10,83 +10,170 @@
   {% else %}
     <a href="{% url 'users_dashboard' %}" class="btn btn-outline-secondary mb-3">← К объявлениям 🚗</a>
 
-    <div class="card border-0 shadow-lg" style="background:#1f2a36;color:#e9ecef;">
-      <div class="row g-0">
-        <!-- Левая колонка: карусель -->
-        <div class="col-lg-6 p-3">
-          <div id="carCarousel" class="carousel slide">
-            <div class="carousel-inner">
-              {% for url in car.images %}
-                <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                  <img src="{{ url }}" class="d-block w-100" style="object-fit:cover;aspect-ratio:16/9;" alt="Фото">
-                </div>
-              {% endfor %}
-            </div>
-            {% if car.images|length > 1 %}
-              <button class="carousel-control-prev" type="button" data-bs-target="#carCarousel" data-bs-slide="prev">
-                <span class="carousel-control-prev-icon"></span>
-                <span class="visually-hidden">Prev</span>
-              </button>
-              <button class="carousel-control-next" type="button" data-bs-target="#carCarousel" data-bs-slide="next">
-                <span class="carousel-control-next-icon"></span>
-                <span class="visually-hidden">Next</span>
-              </button>
+    <div class="card border-0 shadow-lg mb-4" style="background:#1f2a36;color:#e9ecef;">
+      <div class="p-4">
+        <h3 class="mb-1">{{ car.make_name }} {{ car.model_name }}{% if car.year %} · {{ car.year }}{% endif %}</h3>
+        <div class="mb-3 small text-muted">VIN: <span class="font-monospace">{{ car.VIN }}</span></div>
+
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="h4 mb-0 fw-bold">{{ car.price_fmt }} ₽</span>
+          <span id="statusBadge" class="badge
+            {% if car.status == 'available' %}bg-success
+            {% elif car.status == 'reserved' %}bg-warning text-dark
+            {% elif car.status == 'sold' %}bg-danger
+            {% else %}bg-secondary{% endif %}">
+            {{ car.status_ru }}
+          </span>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <button id="orderBtn"
+                  class="btn btn-primary btn-sm"
+                  data-vin="{{ car.VIN }}"
+                  {% if car.status != 'available' %}disabled{% endif %}>
+            Оформить заказ
+          </button>
+
+          <button id="payBtn" class="btn btn-success btn-sm" disabled>
+            Оплатить
+          </button>
+
+          <div id="orderAlert" class="alert d-none py-1 px-2 mb-0 ms-0 ms-lg-2" role="alert"></div>
+        </div>
+
+        <dl class="row small">
+          <dt class="col-5 text-soft">Продавец (Ф.И)</dt>
+          <dd class="col-7 text-plain">{{ car.seller_full_name }}</dd>
+
+          <dt class="col-5 text-soft">Создано</dt>
+          <dd class="col-7 text-plain">{{ car.created_at_fmt }}</dd>
+        </dl>
+
+        <div class="mt-3">
+          <div class="text-muted mb-1">Описание</div>
+          <div class="p-3 rounded" style="background:#18222f;border:1px solid #2b3a4a;">
+            {{ car.description|default:"—" }}
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <div id="sellerRatingBlock" class="mb-3">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <strong>Рейтинг продавца:</strong>
+            {% if seller_rating_avg %}
+              <span class="badge bg-info text-dark">{{ seller_rating_avg }} / 5</span>
+              <span class="text-muted small">({{ seller_rating_count }} отзывов)</span>
+            {% else %}
+              <span class="text-muted">пока нет оценок</span>
             {% endif %}
           </div>
+          <div aria-hidden="true" class="mb-2">
+            {% with avg=seller_rating_avg|default:0 %}
+              {% for i in "12345" %}
+                {% if forloop.counter <= avg|floatformat:0 %}
+                  <span>★</span>
+                {% else %}
+                  <span>☆</span>
+                {% endif %}
+              {% endfor %}
+            {% endwith %}
+          </div>
         </div>
 
-        <!-- Правая колонка: инфо + действия -->
-        <div class="col-lg-6 p-4">
-          <h3 class="mb-1">{{ car.make_name }} {{ car.model_name }}{% if car.year %} · {{ car.year }}{% endif %}</h3>
-          <div class="mb-3 small text-muted">VIN: <span class="font-monospace">{{ car.VIN }}</span></div>
+        <div id="reviewsList" class="mb-3">
+          {% if seller_reviews %}
+            <ul class="list-group">
+              {% for rv in seller_reviews %}
+                <li class="list-group-item d-flex justify-content-between align-items-start"
+                    style="background:#18222f;color:#eef3f9;border:1px solid #2b3a4a;">
+                  <div>
+                    <div class="fw-semibold">Оценка: {{ rv.rating }} / 5</div>
+                    {% if rv.comment %}
+                      <div class="small text-muted mt-1">{{ rv.comment }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="small text-muted ms-3">
+                    {{ rv.created_at|default:"" }}
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-muted">Пока нет отзывов.</div>
+          {% endif %}
+        </div>
 
-          <div class="d-flex align-items-center gap-2 mb-3">
-            <span class="h4 mb-0 fw-bold">{{ car.price_fmt }} ₽</span>
-            <span id="statusBadge" class="badge
-              {% if car.status == 'available' %}bg-success
-              {% elif car.status == 'reserved' %}bg-warning text-dark
-              {% elif car.status == 'sold' %}bg-danger
-              {% else %}bg-secondary{% endif %}">
-              {{ car.status_ru }}
-            </span>
-          </div>
-
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-            <button id="orderBtn"
-                    class="btn btn-primary btn-sm"
-                    data-vin="{{ car.VIN }}"
-                    {% if car.status != 'available' %}disabled{% endif %}>
-              Оформить заказ
-            </button>
-
-            <button id="payBtn" class="btn btn-success btn-sm" disabled>
-              Оплатить
-            </button>
-
-            <div id="orderAlert" class="alert d-none py-1 px-2 mb-0 ms-0 ms-lg-2" role="alert"></div>
-          </div>
-
-          <dl class="row small">
-            <dt class="col-5 text-soft">Продавец (Ф.И)</dt>
-            <dd class="col-7 text-plain">{{ car.seller_full_name }}</dd>
-
-            <dt class="col-5 text-soft">Создано</dt>
-            <dd class="col-7 text-plain">{{ car.created_at_fmt }}</dd>
-          </dl>
-
-          <div class="mt-3">
-            <div class="text-muted mb-1">Описание</div>
-            <div class="p-3 rounded" style="background:#18222f;border:1px solid #2b3a4a;">
-              {{ car.description|default:"—" }}
+        {% if can_review %}
+          <div id="reviewFormWrap" class="p-3 rounded" style="background:#18222f;border:1px solid #2b3a4a;">
+            <div class="mb-2 fw-semibold">Оставить отзыв продавцу</div>
+            <div class="row g-2">
+              <div class="col-12 col-md-3">
+                <label class="form-label small mb-1">Оценка</label>
+                <select id="reviewRating" class="form-select">
+                  <option value="1">1 ★</option>
+                  <option value="2">2 ★★</option>
+                  <option value="3" selected>3 ★★★</option>
+                  <option value="4">4 ★★★★</option>
+                  <option value="5">5 ★★★★★</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-9">
+                <label class="form-label small mb-1">Комментарий (опционально)</label>
+                <textarea id="reviewComment" class="form-control" rows="2" placeholder="Коротко опишите опыт сделки"></textarea>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 mt-3">
+              <button id="sendReviewBtn" class="btn btn-primary btn-sm">Отправить отзыв</button>
+              <div id="reviewAlert" class="alert d-none py-1 px-2 mb-0" role="alert"></div>
             </div>
           </div>
-        </div>
+        {% elif my_already_reviewed %}
+          <div class="alert alert-secondary mt-2">Вы уже оставили отзыв этому продавцу.</div>
+        {% elif me and me.id == car.seller %}
+          <div class="alert alert-secondary mt-2">Нельзя оставлять отзыв на самого себя.</div>
+        {% endif %}
       </div>
     </div>
+
+    <div class="card border-0 shadow-lg" style="background:#1f2a36;color:#e9ecef;">
+      <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
+        <strong>Фотографии</strong>
+        <small class="text-secondary ms-2">Щёлкните по изображению, чтобы открыть</small>
+      </div>
+      <div class="card-body">
+        {% if car.images %}
+          <div class="row g-3">
+            {% for url in car.images %}
+              <div class="col-6 col-md-4 col-lg-3">
+                <a href="#" class="lb-thumb d-block" data-index="{{ forloop.counter0 }}">
+                  <img src="{{ url }}"
+                       class="w-100"
+                       style="aspect-ratio:16/10;object-fit:cover;border-radius:.5rem;border:1px solid #2b3a4a;"
+                       alt="Фото {{ forloop.counter }}">
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted">Нет фотографий.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div id="lightbox" aria-hidden="true">
+      <button class="lb-btn lb-close" aria-label="Закрыть">✕</button>
+      <button class="lb-btn lb-prev" aria-label="Предыдущее">‹</button>
+      <button class="lb-btn lb-next" aria-label="Следующее">›</button>
+      <div class="lb-stage">
+        <img id="lb-img" alt="Фото">
+      </div>
+      <div class="lb-counter" id="lb-counter"></div>
+    </div>
+
   {% endif %}
 </div>
 
-<!-- Модалка оплаты -->
 <div class="modal fade" id="payModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="background:#1f2a36;color:#e9ecef;">
@@ -124,7 +211,51 @@
   .text-muted { color:#c8d3e0!important; }
   .text-soft { color:#aebacf!important; }
   .text-plain { color:#eef3f9!important; }
-  /* Фолбэк-модалка без Bootstrap JS */
+
+  /* === Лайтбокс === */
+  #lightbox {
+    position: fixed; inset: 0; z-index: 2000;
+    display: none; /* по умолчанию скрыт */
+    background: rgba(3,10,20,.9);
+  }
+  #lightbox.lb-open { display: block; }
+  #lightbox .lb-stage {
+    position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center;
+    padding: 4rem 4.5rem 3rem; /* место под кнопки */
+  }
+  #lightbox img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    border-radius: .5rem;
+  }
+  .lb-btn {
+    position: absolute; top: 1rem;
+    background: rgba(255,255,255,.08);
+    color: #e9ecef; border: 1px solid rgba(255,255,255,.15);
+    width: 2.5rem; height: 2.5rem; border-radius: .5rem;
+    display:flex; align-items:center; justify-content:center;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background .15s ease, transform .1s ease;
+  }
+  .lb-btn:hover { background: rgba(255,255,255,.18); transform: translateY(-1px); }
+  .lb-close { right: 1rem; }
+  .lb-prev { left: 1rem; top: 50%; transform: translateY(-50%); font-size: 1.5rem; }
+  .lb-next { right: 1rem; top: 50%; transform: translateY(-50%); font-size: 1.5rem; }
+  .lb-counter {
+    position: absolute; bottom: .8rem; left: 50%;
+    transform: translateX(-50%); color:#c8d3e0; font-size:.9rem;
+    background: rgba(255,255,255,.08); padding:.25rem .5rem; border-radius:.35rem;
+    border:1px solid rgba(255,255,255,.15);
+  }
+
+  /* клики по фону = закрыть */
+  #lightbox:before {
+    content: ""; position:absolute; inset:0;
+  }
+
+  /* Фолбэк-модалка (из твоего кода) */
   .modal.manual-show { display: block !important; }
   .modal-backdrop.manual { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1050; }
 </style>
@@ -141,6 +272,131 @@
   const alertBox     = document.getElementById('orderAlert');
   const statusBadge  = document.getElementById('statusBadge');
 
+  const thumbs = document.querySelectorAll('.lb-thumb');
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lb-img');
+  const lbCounter = document.getElementById('lb-counter');
+  const btnClose = lb.querySelector('.lb-close');
+  const btnPrev  = lb.querySelector('.lb-prev');
+  const btnNext  = lb.querySelector('.lb-next');
+
+  const images = Array.from(document.querySelectorAll('.lb-thumb img')).map(img => img.getAttribute('src'));
+  let idx = 0;
+
+  function updateLightbox() {
+    lbImg.src = images[idx];
+    lbCounter.textContent = (idx+1) + " / " + images.length;
+  }
+  function openLightbox(i=0) {
+    if (!images.length) return;
+    idx = Math.max(0, Math.min(i, images.length-1));
+    updateLightbox();
+    lb.classList.add('lb-open');
+    lb.setAttribute('aria-hidden','false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    lb.classList.remove('lb-open');
+    lb.setAttribute('aria-hidden','true');
+    document.body.style.overflow = '';
+  }
+  function nextImg() { idx = (idx + 1) % images.length; updateLightbox(); }
+  function prevImg() { idx = (idx - 1 + images.length) % images.length; updateLightbox(); }
+
+  thumbs.forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const i = Number(a.dataset.index || 0);
+      openLightbox(i);
+    });
+  });
+  btnClose.addEventListener('click', closeLightbox);
+  btnNext.addEventListener('click', nextImg);
+  btnPrev.addEventListener('click', prevImg);
+
+  document.addEventListener('keydown', (e) => {
+    if (!lb.classList.contains('lb-open')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowRight') nextImg();
+    if (e.key === 'ArrowLeft')  prevImg();
+  });
+  lb.addEventListener('click', (e) => {
+    const isStage = e.target === lb || e.target === lb.querySelector('.lb-stage') || e.target === lb.querySelector('.lb-stage').firstElementChild;
+    if (e.target === lb || e.target === lb.querySelector('.lb-stage')) closeLightbox();
+  });
+
+  let touchX = null;
+  lb.addEventListener('touchstart', (e) => { touchX = e.changedTouches[0].clientX; }, {passive:true});
+  lb.addEventListener('touchend', (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 40) (dx < 0 ? nextImg() : prevImg());
+    touchX = null;
+  }, {passive:true});
+
+  lb.addEventListener('wheel', (e) => {
+    if (!lb.classList.contains('lb-open')) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    (e.deltaX > 0 ? nextImg() : prevImg());
+  }, {passive:false});
+
+  const sendBtn      = document.getElementById('sendReviewBtn');
+  const ratingEl     = document.getElementById('reviewRating');
+  const commentEl    = document.getElementById('reviewComment');
+  const reviewAlert  = document.getElementById('reviewAlert');
+  const sellerId     = {{ car.seller|default:'null' }};
+
+  function showReviewAlert(kind, text) {
+    if (!reviewAlert) return;
+    reviewAlert.className = `alert alert-${kind} py-1 px-2 mb-0`;
+    reviewAlert.textContent = text;
+    reviewAlert.classList.remove('d-none');
+  }
+  function clearReviewAlert() {
+    if (!reviewAlert) return;
+    reviewAlert.className = 'alert d-none py-1 px-2 mb-0';
+    reviewAlert.textContent = '';
+  }
+  async function postReview() {
+    clearReviewAlert();
+    if (!TOKEN) { showReviewAlert('warning','Войдите, чтобы оставить отзыв.'); return; }
+    if (!sellerId) { showReviewAlert('danger','Не найден продавец для этого авто.'); return; }
+    const rating = Number(ratingEl?.value || 0);
+    const comment = (commentEl?.value || '').trim();
+    if (!(rating >= 1 && rating <= 5)) { showReviewAlert('warning','Оценка должна быть от 1 до 5.'); return; }
+    try {
+      sendBtn.disabled = true;
+      const r = await fetch(`${API}/reviews/`, {
+        method: 'POST',
+        headers: HJSON,
+        body: JSON.stringify({ target: sellerId, rating, comment })
+      });
+      const data = await r.json().catch(()=>null);
+      if (!r.ok) {
+        const firstErr = (obj) => {
+          if (!obj) return null;
+          for (const k of Object.keys(obj)) {
+            const v = obj[k];
+            if (typeof v === 'string') return v;
+            if (Array.isArray(v) && v.length) return String(v[0]);
+          }
+          return null;
+        };
+        const msg = firstErr(data) || data?.detail || data?.non_field_errors || r.statusText || 'Не удалось отправить отзыв';
+        showReviewAlert('danger', Array.isArray(msg) ? msg[0] : String(msg));
+        sendBtn.disabled = false;
+        return;
+      }
+      showReviewAlert('success','Спасибо! Отзыв сохранён.');
+      setTimeout(() => location.reload(), 700);
+    } catch (e) {
+      showReviewAlert('danger', String(e));
+      sendBtn.disabled = false;
+    }
+  }
+  sendBtn?.addEventListener('click', postReview);
+
   const payModalEl   = document.getElementById('payModal');
   const payAmountEl  = document.getElementById('payAmount');
   const stepInit     = document.getElementById('payStepInit');
@@ -150,14 +406,11 @@
   const confirm3dsBtn= document.getElementById('confirm3ds');
   const cancel3dsBtn = document.getElementById('cancel3ds');
 
-  // Инициализация Bootstrap Modal, если доступен
   let payModal = null;
-  const hasBootstrap = !!(window.bootstrap && typeof bootstrap.Modal === 'function');
-  if (hasBootstrap && payModalEl) {
+  const hasBsModal = !!(window.bootstrap && typeof bootstrap.Modal === 'function');
+  if (hasBsModal && payModalEl) {
     payModal = new bootstrap.Modal(payModalEl);
   }
-
-  // Фолбэк: ручное открытие/закрытие модалки
   let manualBackdrop = null;
   function openModalFallback() {
     if (!payModalEl) return;
@@ -174,14 +427,11 @@
     payModalEl.classList.remove('manual-show', 'show');
     payModalEl.setAttribute('aria-hidden', 'true');
     payModalEl.style.display = 'none';
-    if (manualBackdrop) {
-      manualBackdrop.remove();
-      manualBackdrop = null;
-    }
+    if (manualBackdrop) { manualBackdrop.remove(); manualBackdrop = null; }
     document.body.classList.remove('modal-open');
   }
-  function openPayModal() { hasBootstrap ? payModal.show() : openModalFallback(); }
-  function closePayModal() { hasBootstrap ? payModal.hide() : closeModalFallback(); }
+  function openPayModal() { hasBsModal ? payModal.show() : openModalFallback(); }
+  function closePayModal() { hasBsModal ? payModal.hide() : closeModalFallback(); }
 
   let currentOrder = null;
 
@@ -254,7 +504,6 @@
     return list.find(o => String(o.car) === String(vin) && o.status === 'pending') || null;
   }
 
-  // --- новые функции для авто-отмены ---
   async function pingCancelExpired() {
     try {
       await fetch(`${API}/orders/cancel_expired/`, {
@@ -269,9 +518,7 @@
     await pingCancelExpired();
     return await fetchMyPendingOrder();
   }
-  // -------------------------------------
 
-  // Оформить заказ
   orderBtn?.addEventListener('click', async () => {
     hideAlert();
     if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оформить заказ.'); return; }
@@ -304,7 +551,6 @@
     step3ds.classList.add('d-none');
   }
 
-  // Оплатить
   payBtn?.addEventListener('click', async () => {
     hideAlert();
     if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оплатить.'); return; }
@@ -328,10 +574,9 @@
 
     payAmountEl.textContent = (currentOrder.total_amount ?? '').toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
     resetPayModal();
-    openPayModal();
+    hasBsModal ? payModal.show() : openModalFallback();
   });
 
-  // 3DS симуляция
   startPayBtn?.addEventListener('click', () => {
     stepInit.classList.add('d-none');
     stepProc.classList.remove('d-none');
@@ -340,12 +585,10 @@
       step3ds.classList.remove('d-none');
     }, 1200);
   });
-
   cancel3dsBtn?.addEventListener('click', () => {
-    closePayModal();
+    hasBsModal ? payModal.hide() : closeModalFallback();
     showAlert('secondary', 'Оплата отменена.');
   });
-
   confirm3dsBtn?.addEventListener('click', async () => {
     try {
       step3ds.classList.add('d-none');
@@ -356,24 +599,23 @@
       const data = await r.json().catch(()=>null);
 
       if (!r.ok) {
-        closePayModal();
+        hasBsModal ? payModal.hide() : closeModalFallback();
         showAlert('danger', data?.detail || r.statusText || 'Оплата не прошла');
         payBtn.disabled = false;
         return;
       }
 
-      closePayModal();
+      hasBsModal ? payModal.hide() : closeModalFallback();
       showAlert('success', 'Оплата прошла. Спасибо!');
       setStatusSoldUI();
     } catch (e) {
-      closePayModal();
+      hasBsModal ? payModal.hide() : closeModalFallback();
       showAlert('danger', String(e));
       payBtn.disabled = false;
       console.error(e);
     }
   });
 
-  // Авто-восстановление состояния при загрузке
   (async () => {
     try {
       if (!TOKEN) return;
@@ -384,6 +626,7 @@
       }
     } catch (e) { console.error(e); }
   })();
+
 })();
 </script>
 

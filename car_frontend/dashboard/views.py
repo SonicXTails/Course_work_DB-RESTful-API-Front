@@ -75,7 +75,6 @@ def auth_view(request):
                 request.session['api_token'] = token
                 return redirect("users_dashboard")
             else:
-                # если сервер не вернул JSON
                 try:
                     error = res.json().get("detail", "Не удалось зарегистрироваться")
                 except JSONDecodeError:
@@ -95,12 +94,10 @@ def users_dashboard(request):
     images_by_car = {}
 
     if token:
-        # 1) кто я (для приветствия)
         r_user = requests.get(ME_URL, headers=headers)
         if r_user.status_code == 200:
             user_data = r_user.json()
 
-        # 2) справочники
         try:
             r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
             if r_makes.ok:
@@ -117,7 +114,6 @@ def users_dashboard(request):
         except Exception:
             pass
 
-        # 3) ВСЕ машины (без фильтра по seller)
         try:
             r_cars = requests.get(CARS_URL, headers=headers, timeout=5)
             if r_cars.ok:
@@ -125,12 +121,11 @@ def users_dashboard(request):
         except Exception:
             cars = []
 
-        # 4) все картинки
         try:
             r_imgs = requests.get(CAR_IMAGES_URL, headers=headers, timeout=5)
             if r_imgs.ok:
                 for img in r_imgs.json():
-                    car_pk = img.get("car")  # VIN
+                    car_pk = img.get("car")
                     images_by_car.setdefault(car_pk, []).append(img.get("image"))
         except Exception:
             pass
@@ -142,17 +137,15 @@ def users_dashboard(request):
                     c["images"]     = images_by_car.get(c.get("VIN")) or []
                     c["status_ru"]  = status_ru(c.get("status"))
 
-                    # --- формат даты ---
                     dt = parse_datetime(c.get("created_at") or "")
                     if dt:
                         c["created_at_fmt"] = localtime(dt).strftime("%d.%m.%Y %H:%M")
                     else:
                         c["created_at_fmt"] = "—"
 
-                    # --- формат цены: 1 000 000 без .00 ---
                     try:
                         price_dec = Decimal(str(c.get("price", "0")))
-                        price_int = int(price_dec)  # отбросим .00
+                        price_int = int(price_dec)
                         c["price_fmt"] = f"{price_int:,}".replace(",", " ")
                     except Exception:
                         c["price_fmt"] = str(c.get("price", "0"))
@@ -178,10 +171,8 @@ def profile_view(request):
         return redirect("logout")
     me = res_user.json()
 
-    # ---- Мои автомобили (с картинками и названиями) ----
     my_cars, makes_map, models_map, images_by_car = [], {}, {}, {}
 
-    # справочники
     try:
         r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
         if r_makes.ok:
@@ -197,7 +188,6 @@ def profile_view(request):
     except Exception:
         pass
 
-    # мои машины
     try:
         url = f"{CARS_URL}?seller={me['id']}"
         r_cars = requests.get(url, headers=headers, timeout=5)
@@ -208,17 +198,15 @@ def profile_view(request):
     except Exception:
         my_cars = []
 
-    # картинки
     try:
         r_imgs = requests.get(CAR_IMAGES_URL, headers=headers, timeout=5)
         if r_imgs.ok:
             for img in r_imgs.json():
-                car_pk = img.get("car")  # VIN
+                car_pk = img.get("car")
                 images_by_car.setdefault(car_pk, []).append(img.get("image"))
     except Exception:
         pass
 
-    # обогащаем
     default_img = request.build_absolute_uri(settings.MEDIA_URL + "car_images/default.png")
     for c in my_cars:
         c["make_name"]  = makes_map.get(c.get("make")) or "—"
@@ -228,14 +216,12 @@ def profile_view(request):
         c["images"] = imgs if imgs else [default_img]
         c["status_ru"] = status_ru(c.get("status"))
 
-        # формат цены (как в index)
         try:
             price_int = int(float(c.get("price", 0)))
             c["price_fmt"] = intcomma(price_int).replace(",", " ")
         except Exception:
             c["price_fmt"] = c.get("price", "")
 
-    # ---- подтягиваем свои роли (как было) ----
     role_map = {}
     my_roles = set()
     try:
@@ -288,7 +274,6 @@ def profile_view(request):
     if is_analitic:
         return render(request, "dashboard/profile_analitic.html", {"user": me})
 
-    # === Обычный пользователь: форма + PATCH/PUT на /users/me/ ===
     if request.method == "POST":
         form = ProfileForm(request.POST)
         if form.is_valid():
@@ -354,8 +339,15 @@ def car_detail(request, vin):
     headers = {"Authorization": f"Token {token}"} if token else {}
     makes_map, models_map, images_by_car = {}, {}, {}
     car, not_found = None, False
+    me = None
+    if token:
+        try:
+            r_user = requests.get(ME_URL, headers=headers, timeout=5)
+            if r_user.ok:
+                me = r_user.json()
+        except Exception:
+            me = None
 
-    # справочники
     try:
         r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
         if r_makes.ok:
@@ -378,7 +370,6 @@ def car_detail(request, vin):
     except Exception:
         pass
 
-    # сама машина
     try:
         r = requests.get(f"{CARS_URL}{vin}/", headers=headers, timeout=5)
         if r.ok:
@@ -388,31 +379,60 @@ def car_detail(request, vin):
     except Exception:
         not_found = True
 
+    seller_reviews = []
+    seller_rating_avg = None
+    seller_rating_count = 0
+    my_already_reviewed = False
+    can_review = False
+
     if car:
         car["make_name"]  = makes_map.get(car.get("make")) or "—"
         model_id = car.get("model")
         car["model_name"] = models_map.get(model_id, {}).get("name", "—")
         car["images"]     = images_by_car.get(car.get("VIN")) or []
 
-        # ФИО продавца (если добавил в CarSerializer — просто car['seller_full_name'] уже будет)
-        # fallback: покажем username если first/last пустые
         first = car.get("seller_first_name") or ""
         last  = car.get("seller_last_name") or ""
         car["seller_full_name"] = (f"{first} {last}".strip() or str(car.get("seller")))
 
-        # Дата
         dt = parse_datetime(car.get("created_at") or "")
         car["created_at_fmt"] = localtime(dt).strftime("%d.%m.%Y %H:%M") if dt else "—"
 
-        # Цена
         try:
             price_int = int(Decimal(str(car.get("price", "0"))))
             car["price_fmt"] = f"{price_int:,}".replace(",", " ")
         except Exception:
             car["price_fmt"] = str(car.get("price", "0"))
 
+        seller_id = car.get("seller")
+        if seller_id:
+            try:
+                r_reviews = requests.get(f"{API_URL}reviews/", headers=headers, timeout=5)
+                if r_reviews.ok:
+                    all_reviews = r_reviews.json()
+                    seller_reviews = [rv for rv in all_reviews if rv.get("target") == seller_id]
+
+                    ratings = [int(rv.get("rating", 0)) for rv in seller_reviews if rv.get("rating") is not None]
+                    if ratings:
+                        seller_rating_count = len(ratings)
+                        seller_rating_avg = round(sum(ratings) / seller_rating_count, 1)
+
+                    if me:
+                        my_already_reviewed = any((rv.get("author") == me.get("id")) for rv in seller_reviews)
+            except Exception:
+                pass
+
+        if me and seller_id and me.get("id") != seller_id and not my_already_reviewed:
+            can_review = True
+
     return render(request, "dashboard/car_detail.html", {
         "car": car,
         "vin": vin,
         "not_found": not_found,
+        "me": me,
+        "seller_reviews": seller_reviews,
+        "seller_rating_avg": seller_rating_avg,
+        "seller_rating_count": seller_rating_count,
+        "can_review": can_review,
+        "my_already_reviewed": my_already_reviewed,
     })
