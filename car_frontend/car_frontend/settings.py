@@ -106,6 +106,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+SESSION_COOKIE_NAME = "api_sessionid"
+CSRF_COOKIE_NAME    = "api_csrftoken"
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

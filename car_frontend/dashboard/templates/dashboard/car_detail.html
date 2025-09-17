@@ -10,7 +10,6 @@
   {% else %}
     <a href="{% url 'users_dashboard' %}" class="btn btn-outline-secondary mb-3">← К объявлениям 🚗</a>
 
-    <!-- ===== Основная карточка (без фото) ===== -->
     <div class="card border-0 shadow-lg mb-4" style="background:#1f2a36;color:#e9ecef;">
       <div class="p-4">
         <h3 class="mb-1">{{ car.make_name }} {{ car.model_name }}{% if car.year %} · {{ car.year }}{% endif %}</h3>
@@ -59,7 +58,6 @@
 
         <hr class="my-4">
 
-        <!-- Рейтинг -->
         <div id="sellerRatingBlock" class="mb-3">
           <div class="d-flex align-items-center gap-2 mb-1">
             <strong>Рейтинг продавца:</strong>
@@ -83,10 +81,8 @@
           </div>
         </div>
 
-        <!-- Мой отзыв — сюда JS поднимет карточку -->
         <div id="myReviewTop" class="mb-3"></div>
 
-        <!-- Список отзывов -->
         <div id="reviewsList" class="mb-3">
           {% if seller_reviews %}
             <ul class="list-group">
@@ -111,7 +107,6 @@
           {% endif %}
         </div>
 
-        <!-- Форма отзыва -->
         {% if can_review %}
           <div id="reviewFormWrap" class="p-3 rounded" style="background:#18222f;border:1px solid #2b3a4a;">
             <div class="mb-2 fw-semibold">Оставить отзыв продавцу</div>
@@ -144,7 +139,6 @@
       </div>
     </div>
 
-    <!-- ===== Отдельная карточка с фотографиями + лайтбокс ===== -->
     <div class="card border-0 shadow-lg" style="background:#1f2a36;color:#e9ecef;">
       <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
         <strong>Фотографии</strong>
@@ -170,7 +164,6 @@
       </div>
     </div>
 
-    <!-- Лайтбокс -->
     <div id="lightbox" aria-hidden="true">
       <button class="lb-btn lb-close" aria-label="Закрыть">✕</button>
       <button class="lb-btn lb-prev" aria-label="Предыдущее">‹</button>
@@ -184,7 +177,6 @@
   {% endif %}
 </div>
 
-<!-- Модалка оплаты -->
 <div class="modal fade" id="payModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="background:#1f2a36;color:#e9ecef;">
@@ -278,7 +270,6 @@
   const alertBox     = document.getElementById('orderAlert');
   const statusBadge  = document.getElementById('statusBadge');
 
-  /* ===== Лайтбокс ===== */
   const thumbs     = document.querySelectorAll('.lb-thumb');
   const lb         = document.getElementById('lightbox');
   const lbImg      = document.getElementById('lb-img');
@@ -327,11 +318,10 @@
     if (e.key === 'ArrowRight') nextImg();
     if (e.key === 'ArrowLeft')  prevImg();
   });
-  // клик по фону — закрыть
+
   lb.addEventListener('click', (e) => {
     if (e.target === lb || e.target === lb.querySelector('.lb-stage')) closeLightbox();
   });
-  // свайпы
   let touchX = null;
   lb.addEventListener('touchstart', (e) => { touchX = e.changedTouches[0].clientX; }, {passive:true});
   lb.addEventListener('touchend', (e) => {
@@ -341,7 +331,6 @@
     touchX = null;
   }, {passive:true});
 
-  /* ===== Отзывы: отправка нового ===== */
   const sendBtn      = document.getElementById('sendReviewBtn');
   const ratingEl     = document.getElementById('reviewRating');
   const commentEl    = document.getElementById('reviewComment');
@@ -398,7 +387,6 @@
   }
   sendBtn?.addEventListener('click', postReview);
 
-  /* ===== Ваш отзыв наверху + редактирование/удаление (без бэкенд-правок) ===== */
   (function setupMyReviewHead() {
     const meId = {{ me.id|default:'null' }};
     if (!meId) return;
@@ -438,7 +426,7 @@
       </div>
     `;
     top.appendChild(card);
-    myItem.remove(); // убрать дубликат из списка остальных
+    myItem.remove();
 
     const btnEdit = card.querySelector('#btnEditMyReview');
     const btnDel  = card.querySelector('#btnDelMyReview');
@@ -487,7 +475,6 @@
           return;
         }
         card.remove();
-        // чтобы сервер снова показал форму отзыва — проще обновить страницу
         location.reload();
       } catch (e) {
         alert('Ошибка: ' + e);
@@ -495,7 +482,6 @@
     });
   })();
 
-  /* ===== Оплата/заказ — как было ===== */
   const payModalEl   = document.getElementById('payModal');
   const payAmountEl  = document.getElementById('payAmount');
   const stepInit     = document.getElementById('payStepInit');
@@ -618,7 +604,6 @@
     return await fetchMyPendingOrder();
   }
 
-  // Оформить заказ
   orderBtn?.addEventListener('click', async () => {
     hideAlert();
     if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оформить заказ.'); return; }
@@ -651,7 +636,6 @@
     step3ds.classList.add('d-none');
   }
 
-  // Оплатить
   payBtn?.addEventListener('click', async () => {
     hideAlert();
     if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оплатить.'); return; }
@@ -678,7 +662,6 @@
     hasBsModal ? payModal.show() : openModalFallback();
   });
 
-  // 3DS симуляция
   startPayBtn?.addEventListener('click', () => {
     stepInit.classList.add('d-none');
     stepProc.classList.remove('d-none');
@@ -718,7 +701,6 @@
     }
   });
 
-  // Автовосстановление состояния
   (async () => {
     try {
       if (!TOKEN) return;

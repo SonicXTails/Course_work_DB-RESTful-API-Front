@@ -28,6 +28,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+SESSION_COOKIE_NAME = "ui_sessionid"
+CSRF_COOKIE_NAME    = "ui_csrftoken"
 
 # Application definition
 
@@ -48,7 +50,7 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        "rest_framework.authentication.TokenAuthentication",
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -68,6 +70,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'core.middleware.CurrentUserMiddleware',
+    "django.middleware.gzip.GZipMiddleware",
 ]
 
 CORS_ALLOWED_ORIGINS = [

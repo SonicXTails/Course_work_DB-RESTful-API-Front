@@ -1,10 +1,16 @@
 import requests
+from urllib.parse import urlencode
 from django.contrib.humanize.templatetags.humanize import intcomma
 from django.conf import settings
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import localtime
+from django.conf import settings
+from django.contrib.auth import logout as dj_logout
+from django.views.decorators.cache import never_cache
+from django.utils.cache import add_never_cache_headers
+from django.shortcuts import redirect
 from decimal import Decimal
 from json import JSONDecodeError
 
@@ -32,9 +38,25 @@ STATUS_MAP_RU = {
 def status_ru(val: str) -> str:
     return STATUS_MAP_RU.get((val or "").lower(), val or "—")
 
+def _qs_without(original_get, *keys_to_remove, **replacements):
+    params = original_get.copy()
+    for k in keys_to_remove:
+        params.pop(k, None)
+    for k, v in replacements.items():
+        if v in (None, '', []):
+            params.pop(k, None)
+        else:
+            params[k] = v
+    return urlencode(params, doseq=True)
+
 @csrf_exempt
 def auth_view(request):
     error = None
+    if request.method == "GET":
+        try:
+            request.session.flush()
+        except Exception:
+            pass
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -79,9 +101,26 @@ def auth_view(request):
                     error = res.json().get("detail", "Не удалось зарегистрироваться")
                 except JSONDecodeError:
                     error = "Не удалось зарегистрироваться"
-
+                    
     return render(request, "dashboard/login.html", {"error": error})
 
+
+from urllib.parse import urlencode
+from decimal import Decimal
+from django.core.paginator import Paginator
+from django.utils.dateparse import parse_datetime
+from django.utils.timezone import localtime
+
+def _qs_without(original_get, *keys_to_remove, **replacements):
+    params = original_get.copy()
+    for k in keys_to_remove:
+        params.pop(k, None)
+    for k, v in replacements.items():
+        if v in (None, '', []):
+            params.pop(k, None)
+        else:
+            params[k] = v
+    return urlencode(params, doseq=True)
 
 def users_dashboard(request):
     token = request.session.get("api_token")
@@ -89,75 +128,196 @@ def users_dashboard(request):
 
     user_data = None
     cars = []
-    makes_map = {}
-    models_map = {}
+    makes_map, models_map = {}, {}
     images_by_car = {}
 
+    # --- профиль ---
     if token:
-        r_user = requests.get(ME_URL, headers=headers)
-        if r_user.status_code == 200:
-            user_data = r_user.json()
+        try:
+            r_user = requests.get(ME_URL, headers=headers, timeout=5)
+            if r_user.ok:
+                user_data = r_user.json()
+        except Exception:
+            user_data = None
+
+    # --- справочники ---
+    try:
+        r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
+        if r_makes.ok:
+            for m in r_makes.json():
+                makes_map[m["id"]] = m["name"]
+    except Exception:
+        pass
+    try:
+        r_models = requests.get(MODELS_URL, headers=headers, timeout=5)
+        if r_models.ok:
+            for m in r_models.json():
+                models_map[m["id"]] = {"name": m["name"], "make": m["make"]}
+    except Exception:
+        pass
+
+    # --- загрузка машин без фильтра ---
+    try:
+        r_cars = requests.get(CARS_URL, headers=headers, timeout=5)
+        if r_cars.ok:
+            cars = r_cars.json()
+    except Exception:
+        cars = []
+
+    # --- фотки одним махом ---
+    try:
+        r_imgs = requests.get(CAR_IMAGES_URL, headers=headers, timeout=5)
+        if r_imgs.ok:
+            for img in r_imgs.json():
+                car_pk = img.get("car")
+                images_by_car.setdefault(str(car_pk), []).append(img.get("image"))
+    except Exception:
+        pass
+
+    # --- нормализация и подготовка служебных полей ---
+    for c in cars:
+        c["make_name"]  = makes_map.get(c.get("make")) or "—"
+        model_id = c.get("model")
+        c["model_name"] = models_map.get(model_id, {}).get("name", "—")
+
+        # изображения: пробуем VIN и id
+        imgs = images_by_car.get(str(c.get("VIN"))) or images_by_car.get(str(c.get("id"))) or []
+        c["images"] = imgs
+
+        # продавец
+        first = c.get("seller_first_name") or ""
+        last  = c.get("seller_last_name") or ""
+        c["seller_full_name"] = (f"{first} {last}".strip() or str(c.get("seller") or "—"))
+
+        # статус
+        c["status_ru"] = status_ru(c.get("status"))
+
+        # даты/цены/год
+        dt = parse_datetime(c.get("created_at") or "")
+        c["_created_dt"] = localtime(dt) if dt else None
+        c["created_at_fmt"] = c["_created_dt"].strftime("%d.%m.%Y %H:%M") if c["_created_dt"] else "—"
 
         try:
-            r_makes = requests.get(MAKES_URL, headers=headers, timeout=5)
-            if r_makes.ok:
-                for m in r_makes.json():
-                    makes_map[m["id"]] = m["name"]
+            c["_price_int"] = int(Decimal(str(c.get("price") or 0)))
         except Exception:
-            pass
+            c["_price_int"] = None
+        c["price_fmt"] = f"{c['_price_int']:,}".replace(",", " ") if c["_price_int"] is not None else str(c.get("price","0"))
 
         try:
-            r_models = requests.get(MODELS_URL, headers=headers, timeout=5)
-            if r_models.ok:
-                for m in r_models.json():
-                    models_map[m["id"]] = {"name": m["name"], "make": m["make"]}
+            c["_year_int"] = int(c.get("year")) if c.get("year") is not None else None
         except Exception:
-            pass
+            c["_year_int"] = None
 
-        try:
-            r_cars = requests.get(CARS_URL, headers=headers, timeout=5)
-            if r_cars.ok:
-                cars = r_cars.json()
-        except Exception:
-            cars = []
+    # --- ЛОКАЛЬНЫЕ ФИЛЬТРЫ ---
+    g = request.GET
+    q          = (g.get('q') or '').strip().lower()
+    status     = (g.get('status') or '').strip().lower()
+    year_min   = g.get('year_min')
+    year_max   = g.get('year_max')
+    price_min  = g.get('price_min')
+    price_max  = g.get('price_max')
+    sort       = g.get('sort')
 
-        try:
-            r_imgs = requests.get(CAR_IMAGES_URL, headers=headers, timeout=5)
-            if r_imgs.ok:
-                for img in r_imgs.json():
-                    car_pk = img.get("car")
-                    images_by_car.setdefault(car_pk, []).append(img.get("image"))
-        except Exception:
-            pass
+    def _passes(c):
+        # поиск по make/model/VIN
+        if q:
+            hay = " ".join([
+                str(c.get("make_name") or ""),
+                str(c.get("model_name") or ""),
+                str(c.get("VIN") or ""),
+            ]).lower()
+            if q not in hay:
+                return False
+        # статус
+        if status and (str(c.get("status") or "").lower() != status):
+            return False
+        # год
+        if year_min:
+            try:
+                if (c.get("_year_int") or -10**9) < int(year_min): return False
+            except Exception:
+                pass
+        if year_max:
+            try:
+                if (c.get("_year_int") or 10**9) > int(year_max): return False
+            except Exception:
+                pass
+        # цена
+        if price_min:
+            try:
+                if (c.get("_price_int") or -10**12) < int(price_min): return False
+            except Exception:
+                pass
+        if price_max:
+            try:
+                if (c.get("_price_int") or 10**12) > int(price_max): return False
+            except Exception:
+                pass
+        return True
 
-        for c in cars:
-                    c["make_name"]  = makes_map.get(c.get("make")) or "—"
-                    model_id = c.get("model")
-                    c["model_name"] = models_map.get(model_id, {}).get("name", "—")
-                    c["images"]     = images_by_car.get(c.get("VIN")) or []
-                    c["status_ru"]  = status_ru(c.get("status"))
+    cars = [c for c in cars if _passes(c)]
 
-                    dt = parse_datetime(c.get("created_at") or "")
-                    if dt:
-                        c["created_at_fmt"] = localtime(dt).strftime("%d.%m.%Y %H:%M")
-                    else:
-                        c["created_at_fmt"] = "—"
+    # --- ЛОКАЛЬНАЯ СОРТИРОВКА ---
+    if sort == "new":
+        cars.sort(key=lambda x: (x.get("_created_dt") is None, -(x["_created_dt"].timestamp() if x.get("_created_dt") else 0)))
+    elif sort == "old":
+        cars.sort(key=lambda x: (x.get("_created_dt") is None, x["_created_dt"].timestamp() if x.get("_created_dt") else float("inf")))
+    elif sort == "price_asc":
+        cars.sort(key=lambda x: (x.get("_price_int") is None, x.get("_price_int") if x.get("_price_int") is not None else float("inf")))
+    elif sort == "price_desc":
+        cars.sort(key=lambda x: (x.get("_price_int") is None, -(x.get("_price_int") if x.get("_price_int") is not None else -10**12)))
+    elif sort == "year_asc":
+        cars.sort(key=lambda x: (x.get("_year_int") is None, x.get("_year_int") if x.get("_year_int") is not None else float("inf")))
+    elif sort == "year_desc":
+        cars.sort(key=lambda x: (x.get("_year_int") is None, -(x.get("_year_int") if x.get("_year_int") is not None else -10**6)))
 
-                    try:
-                        price_dec = Decimal(str(c.get("price", "0")))
-                        price_int = int(price_dec)
-                        c["price_fmt"] = f"{price_int:,}".replace(",", " ")
-                    except Exception:
-                        c["price_fmt"] = str(c.get("price", "0"))
+    # --- пагинация и QS для шаблона ---
+    paginator = Paginator(cars, 10)
+    page_obj = paginator.get_page(g.get('page'))
+
+    base_qs         = _qs_without(g, 'page')
+    qs_no_q         = _qs_without(g, 'page', q='')
+    qs_no_status    = _qs_without(g, 'page', status='')
+    qs_no_year_min  = _qs_without(g, 'page', year_min='')
+    qs_no_year_max  = _qs_without(g, 'page', year_max='')
+    qs_no_price_min = _qs_without(g, 'page', price_min='')
+    qs_no_price_max = _qs_without(g, 'page', price_max='')
+    qs_no_sort      = _qs_without(g, 'page', sort='')
 
     return render(request, "dashboard/index.html", {
         "user": user_data,
-        "cars": cars,
+        "cars": page_obj.object_list,
+        "page_obj": page_obj,
+        "base_qs": base_qs,
+        "qs_no_q": qs_no_q,
+        "qs_no_status": qs_no_status,
+        "qs_no_year_min": qs_no_year_min,
+        "qs_no_year_max": qs_no_year_max,
+        "qs_no_price_min": qs_no_price_min,
+        "qs_no_price_max": qs_no_price_max,
+        "qs_no_sort": qs_no_sort,
     })
 
+@never_cache
 def logout_view(request):
-    request.session.flush()
-    return redirect("auth")
+    # 1) Убираем всё из сессии
+    request.session.pop('api_token', None)
+    try:
+        request.session.flush()           # удалит сессию и создаст новую пустую
+    except Exception:
+        pass
+
+    # 2) Разлогиниваем Django-пользователя (если он есть)
+    dj_logout(request)
+
+    # 3) На всякий случай удалим куки сессии и CSRF у ответа
+    resp = redirect("auth")
+    resp.delete_cookie(settings.SESSION_COOKIE_NAME)
+    resp.delete_cookie("csrftoken")
+
+    # 4) Запретим кэш
+    add_never_cache_headers(resp)
+    return resp
 
 
 def profile_view(request):

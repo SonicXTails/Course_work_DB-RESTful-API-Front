@@ -1,9 +1,575 @@
 {% extends "dashboard/base.html" %}
-{% block title %}Аналитик{% endblock %}
+{% load static %}
+{% block title %}Аналитика (P2P){% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2>Кабинет аналитика</h2>
-  <p>Добро пожаловать, {{ user.username }}!</p>
+<div class="container py-5" style="max-width: 1240px;">
+  <h2 class="mb-4">Аналитика маркетплейса</h2>
+
+  <!-- ФИЛЬТРЫ -->
+  <div class="card border-0 shadow-sm mb-4" style="background:#1f2a36;color:#e9ecef;">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-md-2">
+          <label class="form-label small text-soft">С даты</label>
+          <input id="fFrom" type="date" class="form-control">
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label small text-soft">По дату</label>
+          <input id="fTo" type="date" class="form-control">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label small text-soft">Марка</label>
+          <select id="fMake" class="form-select">
+            <option value="">Все</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small text-soft">Цена от, ₽</label>
+          <input id="fPriceMin" type="number" class="form-control" min="0">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small text-soft">Цена до, ₽</label>
+          <input id="fPriceMax" type="number" class="form-control" min="0">
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label small text-soft">Охват</label>
+          <div class="d-flex gap-2">
+            <select id="fScope" class="form-select">
+              <option value="market">Весь рынок</option>
+              <option value="seller">Конкретный продавец…</option>
+              <option value="me" data-id="{{ user.id|default:'' }}">Я как продавец ({{ user.username }})</option>
+            </select>
+            <select id="fSeller" class="form-select" disabled>
+              <option value="">— выберите продавца —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="col-12 d-flex gap-2 mt-2">
+          <button id="btnApply" class="btn btn-primary">Применить</button>
+          <button id="btnReset" class="btn btn-outline-secondary">Сбросить</button>
+          <div class="ms-auto d-flex gap-2">
+            <button id="btnExportCsv" class="btn btn-success">Экспорт CSV</button>
+            <button id="btnSavePngAll" class="btn btn-outline-light">Сохранить графики PNG</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI (контрастные карточки) -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="card kpi-card shadow-sm border-0">
+        <div class="card-body">
+          <div class="kpi-label">Активных объявлений</div>
+          <div id="kpiActive" class="kpi-value">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card kpi-card shadow-sm border-0">
+        <div class="card-body">
+          <div class="kpi-label">Зарезервировано</div>
+          <div id="kpiReserved" class="kpi-value">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card kpi-card shadow-sm border-0">
+        <div class="card-body">
+          <div class="kpi-label">Продано (шт.)</div>
+          <div id="kpiSold" class="kpi-value">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card kpi-card shadow-sm border-0">
+        <div class="card-body">
+          <div class="kpi-label">GMV (₽)</div>
+          <div id="kpiGMV" class="kpi-value">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-3">
+      <div class="card kpi-card shadow-sm border-0">
+        <div class="card-body">
+          <div class="kpi-label">Медиана дней до продажи</div>
+          <div id="kpiMedianDays" class="kpi-value">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ГРАФИКИ -->
+  <div class="row g-4">
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm" style="background:#1f2a36;color:#e9ecef;">
+        <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
+          <strong>Дни до продажи (распределение)</strong>
+        </div>
+        <div class="card-body">
+          <canvas id="chartDaysToSell"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm" style="background:#1f2a36;color:#e9ecef;">
+        <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
+          <strong>Продажи по маркам (шт.)</strong>
+        </div>
+        <div class="card-body">
+          <canvas id="chartByMake"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card border-0 shadow-sm" style="background:#1f2a36;color:#e9ecef;">
+        <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
+          <strong>Воронка статусов</strong>
+        </div>
+        <div class="card-body">
+          <canvas id="chartFunnel"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ТОП ПРОДАВЦОВ -->
+  <div class="card border-0 shadow-sm mt-4" style="background:#1f2a36;color:#e9ecef;">
+    <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
+      <strong>Топ продавцов (по выбранным фильтрам)</strong>
+    </div>
+    <div class="card-body table-responsive">
+      <table class="table table-sm align-middle mb-0" style="color:#e9ecef;">
+        <thead>
+          <tr class="text-soft">
+            <th>Продавец</th>
+            <th>Продано, шт.</th>
+            <th>GMV, ₽</th>
+            <th>Средний чек, ₽</th>
+          </tr>
+        </thead>
+        <tbody id="tblTopSellers">
+          <tr><td colspan="4" class="text-secondary">Нет данных</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+  .text-soft { color:#aebacf!important; }
+
+  /* KPI — контрастные карточки */
+  .kpi-card{
+    background:#1b2632;               /* на тон светлее основной карты */
+    border:1px solid #2b3a4a;
+    border-radius:.85rem;
+  }
+  .kpi-card .card-body{ padding:1rem 1.25rem; }
+  .kpi-label{
+    color:#aebacf;
+    font-size:.875rem;
+    letter-spacing:.02em;
+  }
+  .kpi-value{
+    color:#f3f7ff;
+    font-weight:800;
+    font-size:2rem;
+    line-height:1.1;
+    text-shadow:0 1px 0 rgba(0,0,0,.25);
+  }
+  .kpi-card:hover{
+    border-color:#3b5066;
+    box-shadow:0 8px 22px rgba(0,0,0,.28);
+  }
+</style>
+
+<script>
+(function(){
+  const API   = "http://127.0.0.1:8000/api/v1";
+  const TOKEN = "{{ request.session.api_token|default:'' }}";
+  const HJSON = { "Authorization": "Token " + TOKEN };
+
+  const fFrom = document.getElementById('fFrom');
+  const fTo   = document.getElementById('fTo');
+  const fMake = document.getElementById('fMake');
+  const fMin  = document.getElementById('fPriceMin');
+  const fMax  = document.getElementById('fPriceMax');
+  const fScope= document.getElementById('fScope');
+  const fSeller = document.getElementById('fSeller');
+  const btnApply = document.getElementById('btnApply');
+  const btnReset = document.getElementById('btnReset');
+  const btnCsv   = document.getElementById('btnExportCsv');
+  const btnPng   = document.getElementById('btnSavePngAll');
+
+  const kActive = document.getElementById('kpiActive');
+  const kRes    = document.getElementById('kpiReserved');
+  const kSold   = document.getElementById('kpiSold');
+  const kGMV    = document.getElementById('kpiGMV');
+  const kMed    = document.getElementById('kpiMedianDays');
+
+  let chartDays, chartByMake, chartFunnel;
+  function ensureChart(ctx, type, data, options){
+    if (ctx._chart) ctx._chart.destroy();
+    ctx._chart = new Chart(ctx, {type, data, options});
+    return ctx._chart;
+  }
+
+  // Единый тёмный пресет для графиков
+  const axisColor = '#c8d3e0';
+  const gridColor = 'rgba(255,255,255,.08)';
+  const borderColor = '#2f3c4e';
+  function chartOpts(title){
+    return {
+      responsive:true,
+      plugins:{
+        legend:{ display:false },
+        title: title ? {display:true, text:title, color:axisColor} : undefined
+      },
+      scales:{
+        x:{ ticks:{ color:axisColor }, grid:{ color:gridColor, borderColor:borderColor } },
+        y:{ beginAtZero:true, ticks:{ color:axisColor }, grid:{ color:gridColor, borderColor:borderColor } }
+      }
+    };
+  }
+
+  const fmtMoney = (n) => (Math.round(n||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  // загрузка справочников и данных
+  async function fetchAll(){
+    const headers = HJSON;
+    const [makesR, carsR, ordersR, txR] = await Promise.all([
+      fetch(`${API}/makes/`, {headers}),
+      fetch(`${API}/cars/`,  {headers}),
+      fetch(`${API}/orders/`,{headers}),
+      fetch(`${API}/transactions/`, {headers}),
+    ]);
+    const [makes, cars, orders, txs] = await Promise.all([
+      makesR.json(), carsR.json(), ordersR.json(), txR.json()
+    ]);
+
+    const makeMap = new Map(makes.map(m => [m.id, m.name]));
+
+    // имена продавцов — из машин (без вызова /users/)
+    const sellerMap = new Map();
+    cars.forEach(c => {
+      const name = (c.seller_full_name && c.seller_full_name.trim()) ||
+                   [c.seller_first_name||'', c.seller_last_name||''].join(' ').trim() ||
+                   `Пользователь #${c.seller}`;
+      if (c.seller) sellerMap.set(c.seller, name);
+    });
+
+    return {makeMap, cars, orders, txs, sellerMap};
+  }
+
+  let RAW = null;
+
+  function fillFiltersAux(){
+    fMake.innerHTML = '<option value="">Все</option>' +
+      Array.from(RAW.makeMap).map(([id,name])=>`<option value="${id}">${name}</option>`).join('');
+
+    fSeller.innerHTML = '<option value="">— выберите продавца —</option>' +
+      Array.from(RAW.sellerMap).sort((a,b)=>a[1].localeCompare(b[1])).map(([id,name])=>`<option value="${id}">${name}</option>`).join('');
+
+    // по умолчанию — последние 60 дней
+    const today = new Date();
+    const from  = new Date(today.getTime() - 59*24*3600*1000);
+    fFrom.value = from.toISOString().slice(0,10);
+    fTo.value   = today.toISOString().slice(0,10);
+  }
+
+  function scopeSellerId(){
+    const val = fScope.value;
+    if (val === 'market') return null;
+    if (val === 'seller') return fSeller.value || null;
+    if (val === 'me') {
+      const meId = document.querySelector('#fScope option[value="me"]').dataset.id || '';
+      return meId || null;
+    }
+    return null;
+  }
+
+  fScope.addEventListener('change', () => {
+    const mode = fScope.value;
+    fSeller.disabled = (mode !== 'seller');
+  });
+
+  function applyFilters(){
+    const makeId = fMake.value || null;
+    const minP = Number(fMin.value || 0);
+    const maxP = Number(fMax.value || 0);
+    const dFrom = fFrom.value ? Date.parse(fFrom.value + "T00:00:00") : null;
+    const dTo   = fTo.value   ? Date.parse(fTo.value   + "T23:59:59.999") : null;
+    const sellerId = scopeSellerId();
+
+    const cars = RAW.cars.filter(c => {
+      if (makeId && String(c.make) !== String(makeId)) return false;
+      const price = Number(c.price || 0);
+      if (minP && price < minP) return false;
+      if (maxP && price > maxP) return false;
+      if (sellerId && String(c.seller) !== String(sellerId)) return false;
+
+      if (dFrom || dTo) {
+        const ts = Date.parse(c.created_at || c.createdAt || '');
+        if (dFrom && (!ts || ts < dFrom)) return false;
+        if (dTo && (!ts || ts > dTo)) return false;
+      }
+      return true;
+    });
+
+    const carVINset = new Set(cars.map(c => c.VIN));
+
+    const orders = RAW.orders.filter(o => {
+      if (!carVINset.has(String(o.car))) return false;
+      const ts = Date.parse(o.order_date || o.created_at || '');
+      if (dFrom && (!ts || ts < dFrom)) return false;
+      if (dTo   && (!ts || ts > dTo)) return false;
+      return true;
+    });
+
+    const orderIdSet = new Set(orders.map(o => o.id));
+
+    const txs = RAW.txs.filter(t => {
+      if (!orderIdSet.has(t.order)) return false;
+      const ts = Date.parse(t.transaction_date || t.created_at || '');
+      if (dFrom && (!ts || ts < dFrom)) return false;
+      if (dTo   && (!ts || ts > dTo)) return false;
+      return true;
+    });
+
+    return {cars, orders, txs};
+  }
+
+  function calcKPI(slice){
+    const active = slice.cars.filter(c => c.status === 'available').length;
+    const reserved = slice.cars.filter(c => c.status === 'reserved').length;
+
+    const paidOrders = new Set(slice.txs.filter(t => t.status === 'completed').map(t => t.order));
+    const soldCount = Array.from(paidOrders).length;
+    const GMV = slice.txs.filter(t => t.status === 'completed').reduce((s,t)=>s+Number(t.amount||0), 0);
+
+    const orderById = new Map(slice.orders.map(o => [o.id, o]));
+    const carByVIN  = new Map(slice.cars.map(c => [c.VIN, c]));
+    const days = [];
+    slice.txs.forEach(t => {
+      if (t.status !== 'completed') return;
+      const ord = orderById.get(t.order);
+      const car = ord ? carByVIN.get(ord.car) : null;
+      if (!car) return;
+      const soldAt = Date.parse(t.transaction_date || '');
+      const createdAt = Date.parse(car.created_at || '');
+      if (!soldAt || !createdAt) return;
+      const diffDays = Math.max(0, Math.round((soldAt - createdAt) / (24*3600*1000)));
+      days.push(diffDays);
+    });
+    days.sort((a,b)=>a-b);
+    const med = days.length ? (days.length%2 ? days[(days.length-1)/2] : Math.round((days[days.length/2 -1] + days[days.length/2])/2)) : null;
+
+    return {active, reserved, soldCount, GMV, medianDays: med};
+  }
+
+  function chartDataDaysToSell(slice){
+    const bins = [0,3,7,14,30,60,90];
+    const labels = ['0','1–3','4–7','8–14','15–30','31–60','61–90','90+'];
+    const counts = Array(labels.length).fill(0);
+
+    const orderById = new Map(slice.orders.map(o => [o.id, o]));
+    const carByVIN  = new Map(slice.cars.map(c => [c.VIN, c]));
+
+    slice.txs.forEach(t => {
+      if (t.status !== 'completed') return;
+      const ord = orderById.get(t.order);
+      const car = ord ? carByVIN.get(ord.car) : null;
+      if (!car) return;
+      const soldAt = Date.parse(t.transaction_date || '');
+      const createdAt = Date.parse(car.created_at || '');
+      if (!soldAt || !createdAt) return;
+      const d = Math.max(0, Math.round((soldAt - createdAt) / (24*3600*1000)));
+      let idx = bins.findIndex(b => d<=b);
+      if (idx === -1) idx = labels.length-1;
+      counts[idx] += 1;
+    });
+
+    return {labels, counts};
+  }
+
+  function chartDataByMake(slice){
+    const paidOrderIds = new Set(slice.txs.filter(t => t.status==='completed').map(t=>t.order));
+    const ordById = new Map(slice.orders.map(o=>[o.id,o]));
+    const carByVIN = new Map(slice.cars.map(c=>[c.VIN, c]));
+    const map = new Map();
+
+    paidOrderIds.forEach(oid => {
+      const o = ordById.get(oid);
+      if (!o) return;
+      const car = carByVIN.get(o.car);
+      if (!car) return;
+      const makeName = RAW.makeMap.get(car.make) || '—';
+      map.set(makeName, (map.get(makeName)||0)+1);
+    });
+
+    const labels = Array.from(map.keys()).sort((a,b)=>map.get(b)-map.get(a));
+    const values = labels.map(l => map.get(l));
+    return {labels, values};
+  }
+
+  function chartDataFunnel(slice){
+    const totalActive = slice.cars.length;
+    const reservedCnt = slice.cars.filter(c => c.status==='reserved').length;
+    const paid = new Set(slice.txs.filter(t => t.status==='completed').map(t => t.order)).size;
+    const cancelled = slice.orders.filter(o => o.status==='cancelled').length;
+    const available = Math.max(0, totalActive - reservedCnt);
+    return {labels:['Available','Reserved','Paid','Cancelled'], values:[available, reservedCnt, paid, cancelled]};
+  }
+
+  function renderKPI(kpi){
+    kActive.textContent = kpi.active;
+    kRes.textContent    = kpi.reserved;
+    kSold.textContent   = kpi.soldCount;
+    kGMV.textContent    = fmtMoney(kpi.GMV);
+    kMed.textContent    = (kpi.medianDays==null ? '—' : kpi.medianDays);
+  }
+
+  function drawCharts(daysData, makeData, funnelData){
+    const ctx1 = document.getElementById('chartDaysToSell').getContext('2d');
+    const ctx2 = document.getElementById('chartByMake').getContext('2d');
+    const ctx3 = document.getElementById('chartFunnel').getContext('2d');
+
+    chartDays   = ensureChart(ctx1, 'bar',
+      {labels: daysData.labels, datasets:[{label:'Штук', data: daysData.counts}]},
+      chartOpts()
+    );
+
+    chartByMake = ensureChart(ctx2, 'bar',
+      {labels: makeData.labels, datasets:[{label:'Штук', data: makeData.values}]},
+      chartOpts()
+    );
+
+    chartFunnel= ensureChart(ctx3, 'bar',
+      {labels: funnelData.labels, datasets:[{label:'Количество', data: funnelData.values}]},
+      chartOpts()
+    );
+  }
+
+  function renderTopSellers(slice){
+    const tbody = document.getElementById('tblTopSellers');
+    const ordById = new Map(slice.orders.map(o=>[o.id,o]));
+    const carByVIN= new Map(slice.cars.map(c=>[c.VIN,c]));
+
+    const stat = new Map(); // sellerId -> {name, sold, gmv}
+    slice.txs.forEach(t => {
+      if (t.status !== 'completed') return;
+      const o = ordById.get(t.order); if (!o) return;
+      const c = carByVIN.get(o.car);  if (!c) return;
+      const sid = c.seller;
+      const name = RAW.sellerMap.get(sid) || `Пользователь #${sid}`;
+      const prev = stat.get(sid) || {name, sold:0, gmv:0};
+      prev.sold += 1;
+      prev.gmv  += Number(t.amount||0);
+      stat.set(sid, prev);
+    });
+
+    const rows = Array.from(stat.values()).sort((a,b)=>b.gmv - a.gmv);
+    tbody.innerHTML = rows.length ? rows.map(r => {
+      const avg = r.sold ? Math.round(r.gmv / r.sold) : 0;
+      return `<tr>
+        <td>${r.name}</td>
+        <td>${r.sold}</td>
+        <td>${fmtMoney(r.gmv)}</td>
+        <td>${fmtMoney(avg)}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="4" class="text-secondary">Нет данных</td></tr>`;
+  }
+
+  // Экспорт CSV
+  function exportCSV(rows, filename='report.csv'){
+    if (!rows || !rows.length) { alert('Нет данных для экспорта'); return; }
+    const header = Object.keys(rows[0]);
+    const csv = [
+      header.join(','),
+      ...rows.map(r => header.map(k => {
+        const v = r[k]==null ? '' : String(r[k]);
+        return (v.includes(',')||v.includes('"')||v.includes('\n')) ? `"${v.replace(/"/g,'""')}"` : v;
+      }).join(','))
+    ].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  btnCsv.addEventListener('click', () => {
+    const KPI = window.__KPI__;
+    if (!KPI) return;
+
+    const kpiRows = [{
+      'Активные': KPI.active,
+      'Зарезервировано': KPI.reserved,
+      'Продано (шт.)': KPI.soldCount,
+      'GMV (₽)': Math.round(KPI.GMV),
+      'Медиана дней до продажи': KPI.medianDays==null ? '' : KPI.medianDays
+    }];
+    exportCSV(kpiRows, 'kpi.csv');
+
+    const byMake = chartByMake?.data?.labels?.map((mk, i)=>({
+      'Марка': mk, 'Продано (шт.)': chartByMake.data.datasets[0].data[i]
+    })) || [];
+    if (byMake.length) exportCSV(byMake, 'sales_by_make.csv');
+
+    const rows = Array.from(document.querySelectorAll('#tblTopSellers tr')).map(tr => {
+      const tds = tr.querySelectorAll('td'); if (tds.length<4) return null;
+      return {'Продавец': tds[0].innerText, 'Продано (шт.)': tds[1].innerText, 'GMV (₽)': tds[2].innerText, 'Средний чек (₽)': tds[3].innerText};
+    }).filter(Boolean);
+    if (rows.length) exportCSV(rows, 'top_sellers.csv');
+  });
+
+  function saveCanvasPng(canvas, name){
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a'); a.href=url; a.download=name; a.click();
+  }
+  btnPng.addEventListener('click', () => {
+    saveCanvasPng(document.getElementById('chartDaysToSell'), 'days_to_sell.png');
+    saveCanvasPng(document.getElementById('chartByMake'), 'sales_by_make.png');
+    saveCanvasPng(document.getElementById('chartFunnel'), 'funnel.png');
+  });
+
+  async function applyAndRender(){
+    const slice = applyFilters();
+    const kpi = calcKPI(slice);
+
+    renderKPI(kpi);
+    drawCharts(
+      chartDataDaysToSell(slice),
+      chartDataByMake(slice),
+      chartDataFunnel(slice)
+    );
+    renderTopSellers(slice);
+
+    window.__SLICE__ = slice;
+    window.__KPI__ = kpi;
+  }
+
+  btnApply.addEventListener('click', applyAndRender);
+  btnReset.addEventListener('click', () => {
+    fFrom.value=''; fTo.value=''; fMake.value=''; fMin.value=''; fMax.value='';
+    fScope.value='market'; fSeller.value=''; fSeller.disabled=true;
+    applyAndRender();
+  });
+
+  async function init(){
+    if (!TOKEN) { alert('Нужно войти'); return; }
+    window.RAW = RAW = await fetchAll();
+    fillFiltersAux();
+    await applyAndRender();
+  }
+  init();
+})();
+</script>
 {% endblock %}
