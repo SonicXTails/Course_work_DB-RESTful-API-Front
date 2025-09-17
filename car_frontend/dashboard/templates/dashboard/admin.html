@@ -537,4 +537,103 @@ async function apiFetch(path, options = {}) {
 })();
 </script>
 
+<hr class="my-4">
+<h3 class="mb-3">Массовая пересценка бренда</h3>
+
+<div class="row g-3 align-items-end">
+  <div class="col-md-6">
+    <label class="form-label">Бренд</label>
+    <select id="repriceMake" class="form-select">
+      <option value="">— выбери бренд —</option>
+      {% if makes %}
+        {% for m in makes %}
+          <option value="{{ m.id }}">{{ m.name }}</option>
+        {% endfor %}
+      {% endif %}
+    </select>
+    <div class="form-text">Alt+R — фокус на поле процента</div>
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label">Процент</label>
+    <input id="repricePercent" type="number" step="0.01" class="form-control" placeholder="например, 5 или -3.5">
+  </div>
+
+  <div class="col-md-3">
+    <button id="repriceBtn" class="btn btn-primary w-100">Пересчитать</button>
+  </div>
+</div>
+
+<div id="repriceResult" class="mt-2"></div>
+
+<script>
+(function () {
+  // элементы
+  const makeSel   = document.getElementById('repriceMake');
+  const percentEl = document.getElementById('repricePercent');
+  const btn       = document.getElementById('repriceBtn');
+  const out       = document.getElementById('repriceResult');
+
+  // если список брендов не пришёл в контексте, подтащим из API
+  async function ensureMakes() {
+    if (!makeSel) return;
+    const hasOnlyPlaceholder = makeSel.options.length <= 1;
+    if (!hasOnlyPlaceholder) return;
+    try {
+      const r = await apiFetch('/makes/?ordering=name&limit=200');
+      if (!r.ok) return;
+      const data = await r.json();
+      data.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.id; o.textContent = m.name;
+        makeSel.appendChild(o);
+      });
+    } catch (_) {}
+  }
+
+  // обработчик клика
+  btn?.addEventListener('click', async () => {
+    const id = Number(makeSel?.value);
+    const p  = Number(percentEl?.value);
+    if (!id || Number.isNaN(p)) {
+      out.innerHTML = `<div class="alert alert-warning">Выбери бренд и введи процент.</div>`;
+      return;
+    }
+    btn.disabled = true;
+    const old = btn.textContent;
+    btn.textContent = 'Пересчитываю…';
+    try {
+      const res = await apiFetch(`/makes/${id}/bulk_reprice/`, {
+        method: 'POST',
+        body: JSON.stringify({ percent: p })
+      });
+      let data = null; try { data = await res.json(); } catch(_) {}
+      if (res.ok) {
+        out.innerHTML = `<div class="alert alert-success">Готово: затронуто ${data?.affected ?? '—'} авто (${p}%).</div>`;
+      } else {
+        out.innerHTML = `<div class="alert alert-danger">Ошибка ${res.status}: ${data?.detail ?? (data ? JSON.stringify(data) : '—')}</div>`;
+      }
+    } catch (e) {
+      out.innerHTML = `<div class="alert alert-danger">Ошибка: ${String(e)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = old;
+    }
+  });
+
+  // хоткей Alt+R — фокус на поле процента
+  document.addEventListener('keydown', (e) => {
+    const tag = (document.activeElement?.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || document.activeElement?.isContentEditable) return;
+    if (e.altKey && !e.ctrlKey && e.code === 'KeyR') {
+      e.preventDefault();
+      percentEl?.focus();
+      percentEl?.select();
+    }
+  });
+
+  ensureMakes();
+})();
+</script>
+
 {% endblock %}

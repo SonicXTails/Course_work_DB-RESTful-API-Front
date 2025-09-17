@@ -568,16 +568,13 @@
   }
 
   async function createOrder() {
-    const r = await fetch(`${API}/orders/`, {
+    const r = await fetch(`${API}/cars/${vin}/reserve/`, {
       method: 'POST',
       headers: HJSON,
-      body: JSON.stringify({ car: vin })
+      body: JSON.stringify({}) // тело не обязательно, но пусть будет
     });
     const data = await r.json().catch(()=>null);
-    if (!r.ok) {
-      const msg = extractApiError(data, r.statusText || 'Не удалось оформить заказ');
-      throw new Error(msg);
-    }
+    if (!r.ok) throw new Error((data && (data.detail || data.error)) || `HTTP ${r.status}`);
     return data;
   }
 
@@ -674,22 +671,22 @@
     hasBsModal ? payModal.hide() : closeModalFallback();
     showAlert('secondary', 'Оплата отменена.');
   });
+  
+
   confirm3dsBtn?.addEventListener('click', async () => {
     try {
       step3ds.classList.add('d-none');
       stepProc.classList.remove('d-none');
 
-      const payload = { order: currentOrder.id, amount: currentOrder.total_amount };
-      const r = await fetch(`${API}/transactions/`, { method: 'POST', headers: HJSON, body: JSON.stringify(payload) });
-      const data = await r.json().catch(()=>null);
+      const r = await fetch(`${API}/orders/${currentOrder.id}/confirm/`, {
+        method: 'POST',
+        headers: HJSON,
+        body: JSON.stringify({}) // тело не обязательно
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((data?.detail || data?.error || r.statusText || `HTTP ${r.status}`));
 
-      if (!r.ok) {
-        hasBsModal ? payModal.hide() : closeModalFallback();
-        showAlert('danger', data?.detail || r.statusText || 'Оплата не прошла');
-        payBtn.disabled = false;
-        return;
-      }
-
+      // успех
       hasBsModal ? payModal.hide() : closeModalFallback();
       showAlert('success', 'Оплата прошла. Спасибо!');
       setStatusSoldUI();
@@ -697,7 +694,8 @@
       hasBsModal ? payModal.hide() : closeModalFallback();
       showAlert('danger', String(e));
       payBtn.disabled = false;
-      console.error(e);
+    } finally {
+      stepProc.classList.add('d-none');
     }
   });
 

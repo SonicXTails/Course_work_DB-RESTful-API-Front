@@ -188,3 +188,7 @@ class AuditLog(models.Model):
             models.Index(fields=['table_name']),
             models.Index(fields=['action']),
         ]
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    phone_masked = models.CharField(max_length=32, blank=True) 

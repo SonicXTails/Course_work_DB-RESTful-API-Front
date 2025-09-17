@@ -1,46 +1,63 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+__all__ = [
+    "IsAdminOrReadOnlyAuthenticated",
+    "IsOwnerOrAdminForWrite",
+    "IsAdmin",
+    "IsAnalyst",
+]
+
+def _has_role(user, *names):
+    try:
+        roles = set(getattr(user, "roles", []))
+    except Exception:
+        roles = set()
+    return bool(roles & set(names))
+
+class IsAdmin(BasePermission):
+    def has_permission(self, request, view):
+        u = getattr(request, "user", None)
+        return bool(u and u.is_authenticated and (_has_role(u, "admin") or getattr(u, "is_superuser", False)))
+
+class IsAnalyst(BasePermission):
+    def has_permission(self, request, view):
+        u = getattr(request, "user", None)
+        return bool(u and u.is_authenticated and (_has_role(u, "analitic", "admin") or getattr(u, "is_superuser", False)))
+
 class IsAdminOrReadOnlyAuthenticated(BasePermission):
     """
-    Любой авторизованный может читать (GET/HEAD/OPTIONS).
-    Любые изменения (POST/PUT/PATCH/DELETE) — только админ.
+    Читать (GET/HEAD/OPTIONS) — любой авторизованный.
+    Писать (POST/PUT/PATCH/DELETE) — только админ/суперпользователь.
     """
     def has_permission(self, request, view):
-        user = getattr(request, "user", None)
-        if not user or not user.is_authenticated:
+        u = getattr(request, "user", None)
+        if not u or not u.is_authenticated:
             return False
         if request.method in SAFE_METHODS:
             return True
-        return user.is_superuser or ('admin' in getattr(user, 'roles', []))
-
+        return _has_role(u, "admin") or getattr(u, "is_superuser", False)
 
 class IsOwnerOrAdminForWrite(BasePermission):
     """
-    Читать: авторизованные.
-    Создавать/менять/удалять: владелец объекта ИЛИ админ.
-
-    Владелец определяется по первому совпавшему полю из:
-    seller / buyer / author / user (чтобы работало для Car/Order/Review/UserRole).
+    Читать — авторизованные.
+    Писать/удалять — владелец объекта или админ.
+    Владелец определяется по полям seller / buyer / author / user (первое совпавшее).
     """
-    OWNER_ATTRS = ('seller', 'buyer', 'author', 'user')
+    OWNER_ATTRS = ("seller", "buyer", "author", "user")
 
     def has_permission(self, request, view):
-        user = getattr(request, "user", None)
-        if not user or not user.is_authenticated:
-            return False
-        if view.action in ('list', 'retrieve', 'create'):
-            return True
-        return True
+        u = getattr(request, "user", None)
+        return bool(u and u.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
-        user = request.user
         if request.method in SAFE_METHODS:
             return True
-        if user.is_superuser or ('admin' in getattr(user, 'roles', [])):
+        u = request.user
+        if getattr(u, "is_superuser", False) or _has_role(u, "admin"):
             return True
         for attr in self.OWNER_ATTRS:
             owner = getattr(obj, attr, None)
-            owner_id = getattr(owner, 'id', owner)
-            if owner_id == user.id:
+            owner_id = getattr(owner, "id", owner)
+            if owner_id == u.id:
                 return True
         return False

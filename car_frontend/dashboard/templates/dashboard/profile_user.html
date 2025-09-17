@@ -89,7 +89,7 @@
              data-year="{{ car.year }}"
              data-price="{{ car.price }}"
              data-status="{{ car.status }}"
-             data-description="{{ car.description|default:'' }}">
+             data-description="{{ car.description|default_if_none:''|escape }}">
           <img src="{{ car.images|first }}"
                alt="img"
                onerror="this.onerror=null;this.src='{% static 'img/default.png' %}';"
@@ -149,13 +149,14 @@
               <label class="form-label">Марка</label>
               <input name="make_name" class="form-control" list="makesList" placeholder="Введи или выбери марку" required>
               <datalist id="makesList"></datalist>
-              <div class="form-text">Можно выбрать из списка или ввести новую — мы создадим её автоматически.</div>
+              <div class="form-text">Можно выбрать из списка или ввести новую — создадим автоматически.</div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Модель</label>
-              <input name="model_name" class="form-control" list="modelsList" placeholder="Введи или выбери модель" required disabled>
+              <!-- Больше НЕ disabled: можно вводить вручную всегда -->
+              <input name="model_name" class="form-control" list="modelsList" placeholder="Введи или выбери модель" required>
               <datalist id="modelsList"></datalist>
-              <div class="form-text">Список моделей фильтруется по выбранной марке; можно ввести новую.</div>
+              <div class="form-text">Подсказки появятся после выбора марки; можно ввести модель руками.</div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Год</label>
@@ -239,6 +240,47 @@
   .invalid-feedback.d-block { color:#f8d7da; }
   #photosPreview .thumb { width:96px;text-align:center;border:1px solid #2b3a4a;border-radius:.5rem;padding:.25rem;background:#18222f; }
   #photosPreview img { width:90px;height:90px;object-fit:cover;border-radius:.5rem; }
+
+  /* Контрастное выделение текста на тёмном фоне */
+  :root{
+    --selection-bg: #4c8bf5;   /* фон выделения */
+    --selection-fg: #0b1422;   /* цвет текста на выделении */
+  }
+
+  /* обычный текст */
+  ::selection {
+    background: var(--selection-bg);
+    color: var(--selection-fg);
+  }
+  ::-moz-selection {
+    background: var(--selection-bg);
+    color: var(--selection-fg);
+  }
+
+  /* текст внутри полей ввода/textarea */
+  input::selection,
+  textarea::selection {
+    background: var(--selection-bg);
+    color: #ffffff;
+  }
+  input::-moz-selection,
+  textarea::-moz-selection {
+    background: var(--selection-bg);
+    color: #ffffff;
+  }
+
+  /* немножко улучшим подсказки под инпутами, чтобы не бледнели */
+  .form-text { color:#a9b7c6; }
+
+  /* чтобы фокус полей был виден на тёмном фоне */
+  input.form-control:focus,
+  textarea.form-control:focus,
+  select.form-select:focus {
+    border-color: #4c8bf5;
+    box-shadow: 0 0 0 .2rem rgba(76,139,245,.25);
+    outline: 0;
+  }
+
 </style>
 
 <!-- JS: кратко и по делу -->
@@ -278,7 +320,7 @@
   const photosInput   = document.getElementById('carPhotos');
   const photosPreview = document.getElementById('photosPreview');
 
-  // новые элементы (инпуты + даталисты)
+  // элементы (инпуты + даталисты)
   const makeInput  = createForm?.elements['make_name'];
   const modelInput = createForm?.elements['model_name'];
   const makesDL    = document.getElementById('makesList');
@@ -313,7 +355,7 @@
   function fillModelsDatalist(makeId) {
     if (!modelsDL) return;
     modelsDL.innerHTML = '';
-    if (!makeId) return;
+    if (!makeId) return; // марка не распознана — подсказок нет, но ввод разрешён
     for (const md of MODELS.filter(x => String(x.make) === String(makeId))) {
       const opt = document.createElement('option');
       opt.value = md.name;
@@ -387,7 +429,7 @@
       fillMakesDatalist();
 
       selectedMakeId = null;
-      if (modelInput) { modelInput.value = ''; modelInput.disabled = true; }
+      if (modelInput) { modelInput.value = ''; } // НЕ блокируем поле
       if (modelsDL) modelsDL.innerHTML = '';
 
       if (makeInput) {
@@ -395,7 +437,6 @@
         makeInput.addEventListener('input', () => {
           const found = findMakeByName(makeInput.value);
           selectedMakeId = found ? found.id : null;
-          if (modelInput) modelInput.disabled = !selectedMakeId;
           fillModelsDatalist(selectedMakeId);
         });
       }
@@ -403,7 +444,8 @@
       if (modelInput) {
         modelInput.onfocus = null;
         modelInput.addEventListener('focus', () => {
-          if (selectedMakeId) fillModelsDatalist(selectedMakeId);
+          // если марка распознана — покажем подсказки; иначе оставить пусто
+          fillModelsDatalist(selectedMakeId);
         });
       }
     } catch {
@@ -451,6 +493,7 @@
     if (!modelName)  return alertCreate('warning','Укажи модель');
 
     try {
+      // даже если марка/модель новые — создадим их
       const makeId  = await ensureMakeId(makeName);
       const modelId = await ensureModelId(modelName, makeId);
 
@@ -473,7 +516,7 @@
 
       alertCreate('success', `Объявление создано (VIN ${vin})`);
       createForm.reset(); if (photosPreview) photosPreview.innerHTML='';
-      selectedMakeId = null; if (modelsDL) modelsDL.innerHTML=''; if (modelInput) modelInput.disabled = true;
+      selectedMakeId = null; if (modelsDL) modelsDL.innerHTML='';
       setTimeout(() => location.reload(), 600);
     } catch (err) {
       alertCreate('danger', String(err.message || err));
@@ -504,7 +547,7 @@
       return;
     }
 
-    // Отмена заказа без формы
+    // Отмена заказа без формы (клиентская)
     if (e.target.closest('.seller-cancel')) {
       const vin = row.dataset.vin;
       try {

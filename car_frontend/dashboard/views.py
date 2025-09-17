@@ -6,7 +6,6 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import localtime
-from django.conf import settings
 from django.contrib.auth import logout as dj_logout
 from django.views.decorators.cache import never_cache
 from django.utils.cache import add_never_cache_headers
@@ -28,6 +27,7 @@ CARS_URL = f"{API_URL}cars/"
 CAR_IMAGES_URL = f"{API_URL}car_images/"
 USER_ROLES_URL = f"{API_URL}admin/user_roles/"
 ROLES_URL = f"{API_URL}admin/roles/"
+ORDERS_URL = f"{API_URL}orders/"
 
 STATUS_MAP_RU = {
     "available": "продаётся",
@@ -35,6 +35,7 @@ STATUS_MAP_RU = {
     "sold": "продано",
     "unavailable": "недоступно",
 }
+
 def status_ru(val: str) -> str:
     return STATUS_MAP_RU.get((val or "").lower(), val or "—")
 
@@ -48,6 +49,18 @@ def _qs_without(original_get, *keys_to_remove, **replacements):
         else:
             params[k] = v
     return urlencode(params, doseq=True)
+
+def _h(token: str | None):
+    return {"Authorization": f"Token {token}"} if token else {}
+
+def _get(path: str, token: str | None):
+    try:
+        r = requests.get(API_URL + path.lstrip("/"), headers=_h(token), timeout=10)
+        if r.ok:
+            return r.json()
+    except requests.RequestException:
+        pass
+    return None
 
 @csrf_exempt
 def auth_view(request):
@@ -429,6 +442,7 @@ def profile_view(request):
             "users": users,
             "roles": roles,
             "audit_logs": audit_logs,
+            "is_admin": True,
         })
 
     if is_analitic:
@@ -596,3 +610,104 @@ def car_detail(request, vin):
         "can_review": can_review,
         "my_already_reviewed": my_already_reviewed,
     })
+
+def _auth_headers(request):
+    token = request.session.get("api_token")
+    return {"Authorization": f"Token {token}"} if token else {}
+
+def _safe_json(resp):
+    try:
+        return resp.json()
+    except JSONDecodeError:
+        return {"detail": f"HTTP {resp.status_code}"}
+
+@login_required
+def car_reserve(request, vin):
+    """Кнопка «Зарезервировать» на карточке авто."""
+    url = f"{CARS_URL}{vin}/reserve/"
+    resp = requests.post(url, headers=_auth_headers(request), timeout=10)
+    data = _safe_json(resp)
+    if resp.status_code in (200, 201):
+        messages.success(request, f"Заказ создан (#{data.get('id')}). Авто зарезервировано.")
+    else:
+        messages.error(request, data.get("detail") or "Не удалось зарезервировать авто.")
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
+@login_required
+def order_confirm(request, order_id):
+    """Кнопка «Подтвердить заказ» в списке заказов."""
+    url = f"{ORDERS_URL}{order_id}/confirm/"
+    resp = requests.post(url, headers=_auth_headers(request), timeout=10)
+    data = _safe_json(resp)
+    if resp.status_code in (200, 201):
+        messages.success(request, f"Транзакция создана (#{data.get('id')}). Заказ подтверждён.")
+    else:
+        messages.error(request, data.get("detail") or "Не удалось подтвердить заказ.")
+    return redirect(request.META.get("HTTP_REFERER", "/orders/"))
+
+@login_required
+def order_seller_cancel(request, order_id):
+    """Кнопка «Отменить как продавец» в списке заказов."""
+    payload = {}
+    reason = (request.POST.get("reason") or "").strip()
+    if reason:
+        payload["reason"] = reason
+
+    url = f"{ORDERS_URL}{order_id}/seller_cancel/"
+    resp = requests.post(url, headers=_auth_headers(request),
+                         json=payload, timeout=10)
+    data = _safe_json(resp)
+    if resp.status_code in (200, 204):
+        messages.success(request, f"Заказ #{order_id} отменён.")
+    else:
+        messages.error(request, data.get("detail") or "Не удалось отменить заказ.")
+    return redirect(request.META.get("HTTP_REFERER", "/orders/"))
+
+@login_required
+def make_bulk_reprice(request, make_id):
+    """Форма «Пересчитать цены бренда» (для admin/superuser)."""
+    if request.method == "POST":
+        try:
+            percent = float(request.POST.get("percent", ""))
+        except ValueError:
+            messages.error(request, "Процент должен быть числом (можно отрицательное).")
+            return redirect(request.META.get("HTTP_REFERER", "/admin/makes/"))
+
+        url = f"{MAKES_URL}{make_id}/bulk_reprice/"
+        resp = requests.post(url, json={"percent": percent}, headers=_auth_headers(request), timeout=15)
+        data = _safe_json(resp)
+        if resp.status_code == 200:
+            messages.success(request, f"Цены обновлены: затронуто {data.get('affected')} авто, {percent}%.")
+        else:
+            messages.error(request, data.get("detail") or "Не удалось пересчитать цены.")
+        return redirect(request.META.get("HTTP_REFERER", "/admin/makes/"))
+
+    # GET — простая страница с формой ввода процента
+    return render(request, "dashboard/makes_bulk_reprice.html", {"make_id": make_id})
+
+@login_required
+def admin_panel(request):
+    """
+    ВАЖНО: не трогаем ORM, всё берём только из API.
+    - is_admin берём из /users/me/
+    - makes, roles, users, audit_logs — из соответствующих API
+    """
+    token = request.session.get("api_token")
+    is_admin = False
+
+    me = _get("users/me/", token) if token else None
+    if me:
+        roles = set((me.get("roles") or []))
+        is_admin = bool(me.get("is_superuser") or me.get("is_staff") or ("admin" in roles))
+
+    # Ничего заранее не подтягиваем, шаблон сам подгрузит через fetch(apiFetch)
+    ctx = {
+        "is_admin": is_admin,
+        "has_token": bool(token),
+        # Пустые коллекции — чтобы template-логика не падала
+        "users": [],
+        "roles": [],
+        "audit_logs": [],
+        "makes": [],
+    }
+    return render(request, "dashboard/admin.html", ctx)

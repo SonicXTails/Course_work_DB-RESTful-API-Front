@@ -1,0 +1,15 @@
+{% for order in orders %}
+  <tr>
+    <td>#{{ order.id }}</td>
+    <td>{{ order.car.vin }}</td>
+    <td>{{ order.status }}</td>
+    <td>
+      {% if order.status == "reserved" %}
+        <form method="post" action="{% url 'order_confirm' order.id %}" class="d-inline">
+          {% csrf_token %}
+          <button class="btn btn-success btn-sm">Подтвердить</button>
+        </form>
+      {% endif %}
+    </td>
+  </tr>
+{% endfor %}

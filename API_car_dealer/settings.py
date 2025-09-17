@@ -9,11 +9,20 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env") 
+
+def env_bool(name: str, default: str = "0") -> bool:
+    return str(os.getenv(name, default)).strip().lower() in ("1", "true", "yes", "y")
+
+def env_list(name: str, default: str = "") -> list[str]:
+    raw = os.getenv(name, default)
+    return [x.strip() for x in raw.split(",") if x.strip()]
 
 AUTH_USER_MODEL = 'core.User'
 
@@ -24,9 +33,7 @@ AUTH_USER_MODEL = 'core.User'
 SECRET_KEY = 'django-insecure-$ju=ff2*@^72fd!2k0g#ovf1u1=crj1pn&bk0d!v@ye3g9%s9n'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+DEBUG = env_bool("DEBUG", "0")
 
 SESSION_COOKIE_NAME = "ui_sessionid"
 CSRF_COOKIE_NAME    = "ui_csrftoken"
@@ -54,7 +61,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-    ]
+    ],
+    'EXCEPTION_HANDLER': 'core.http_client.custom_exception_handler'
 }
 
 MIDDLEWARE = [
@@ -73,10 +81,14 @@ MIDDLEWARE = [
     "django.middleware.gzip.GZipMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:8400",
-    "http://localhost:8400",
-]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    "http://127.0.0.1:8000,http://localhost:8000"
+)
+
+CORS_ALLOW_CREDENTIALS = True
 
 from corsheaders.defaults import default_headers
 CORS_ALLOW_HEADERS = list(default_headers) + ["Authorization", "authorization"]
@@ -114,16 +126,16 @@ WSGI_APPLICATION = 'API_car_dealer.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'DB_Car_dash',
-        'USER': 'postgres',
-        'PASSWORD': 'werawera00',
-        'HOST': 'localhost',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME", "cars"),
+        "USER": os.getenv("DB_USER", "caruser"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

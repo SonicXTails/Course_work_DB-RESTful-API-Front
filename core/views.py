@@ -2,8 +2,10 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 
 from PIL import Image
+from core.db import call_proc
+from decimal import Decimal, InvalidOperation
+from django.db import connection, transaction 
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly
@@ -139,7 +141,26 @@ class UserRoleViewSet(ModelViewSet):
 class MakeViewSet(ModelViewSet):
     queryset = Make.objects.all()
     serializer_class = MakeSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsOwnerOrAdminForWrite]
+
+    @action(detail=True, methods=["post"])
+    def bulk_reprice(self, request, pk=None):
+        raw = request.data.get("percent")
+        try:
+            percent = Decimal(str(raw))
+        except (InvalidOperation, TypeError):
+            return Response({"detail": "percent должен быть числом"}, status=400)
+
+        with transaction.atomic(), connection.cursor() as cur:
+            cur.execute("""
+                UPDATE core_car
+                SET price = ROUND(GREATEST(price * (1 + %s/100.0), 0)::NUMERIC, 2)
+                WHERE make_id = %s
+                AND status IN ('available','reserved')
+            """, [percent, int(pk)])
+            affected = cur.rowcount
+
+        return Response({"affected": int(affected), "percent": float(percent)}, status=200)
 
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Catalog / Models']))
@@ -179,11 +200,6 @@ class CarViewSet(ModelViewSet):
         permission_classes=[IsAuthenticated],
     )
     def upload_images(self, request, pk=None):
-        """
-        POST /api/v1/cars/{VIN}/images/
-        Принимает несколько файлов под ключом 'files' (или одиночный 'image').
-        Возвращает список созданных CarImage с абсолютными URL.
-        """
         try:
             car = Car.objects.get(pk=pk)
         except Car.DoesNotExist:
@@ -192,38 +208,36 @@ class CarViewSet(ModelViewSet):
         files = request.FILES.getlist('files')
         if not files and 'image' in request.FILES:
             files = [request.FILES['image']]
-
         if not files:
-            return Response({"detail": "Файлы не переданы. Используй поле 'files' (множественное) или 'image'."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Файлы не переданы. Используй 'files' или 'image'."}, status=400)
 
         created = []
         for f in files:
             if f.size > 8 * 1024 * 1024:
                 return Response({"detail": f"Слишком большой файл: {f.name} (>8MB)"}, status=400)
-
             try:
                 im = Image.open(f)
                 w, h = im.size
                 ratio = (w / h) if h else 0
             except Exception:
-                return Response({"detail": f"Не удалось прочитать изображение: {getattr(f, 'name', 'file')}"}, status=400)
+                return Response({"detail": f"Не удалось прочитать изображение: {getattr(f,'name','file')}"}, status=400)
 
             if w < 800 or h < 450 or ratio < 1.3:
-                return Response(
-                    {"detail": f"Недопустимое фото {getattr(f,'name','')}: только горизонтальные ≥800×450, соотношение ≥1.3"},
-                    status=400
-                )
-            try:
-                f.seek(0)
-            except Exception:
-                pass
+                return Response({"detail": f"Недопустимое фото {getattr(f,'name','')}: только горизонтальные ≥800×450, соотношение ≥1.3"}, status=400)
+
+            try: f.seek(0)
+            except Exception: pass
 
             img = CarImage.objects.create(car=car, image=f)
             created.append(CarImageSerializer(img, context={"request": request}).data)
 
-        return Response(created, status=201)
+        return Response(created, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'], url_path='reserve', permission_classes=[IsAuthenticated])
+    def reserve(self, request, pk=None):
+        order_id = call_proc("SELECT sp_reserve_car(%s, %s);", [request.user.id, pk])
+        order = Order.objects.get(pk=order_id)
+        return Response(OrderSerializer(order, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Cars / Images']))
 @method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Cars / Images']))
@@ -307,8 +321,15 @@ class OrderViewSet(ModelViewSet):
             except Exception:
                 pass
 
-        return Response(OrderSerializer(ord_locked).data, status=status.HTTP_200_OK)
-
+    @action(detail=True, methods=['post'], url_path='confirm', permission_classes=[IsAuthenticated])
+    def confirm(self, request, pk=None):
+        """
+        Вызывает sp_complete_sale(<order_id>), возвращает созданную Transaction.
+        В миграции у тебя функция называется sp_complete_sale (не sp_confirm_order).
+        """
+        tx_id = call_proc("SELECT sp_complete_sale(%s);", [pk])
+        tx = Transaction.objects.get(pk=tx_id)
+        return Response(TransactionSerializer(tx, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Payments']))
 @method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Payments']))
@@ -446,3 +467,27 @@ class RegisterViewSet(ModelViewSet):
             {"id": user.id, "username": user.username, "token": token.key},
             status=status.HTTP_201_CREATED
         )
+    
+class MakeViewSet(ModelViewSet):
+    queryset = Make.objects.all()
+    serializer_class = MakeSerializer
+    permission_classes = [IsOwnerOrAdminForWrite]
+
+    @action(detail=True, methods=["post"])
+    def bulk_reprice(self, request, pk=None):
+        raw = request.data.get("percent")
+        try:
+            percent = Decimal(str(raw))
+        except (InvalidOperation, TypeError):
+            return Response({"detail": "percent должен быть числом"}, status=400)
+
+        with transaction.atomic(), connection.cursor() as cur:
+            cur.execute("""
+                UPDATE core_car
+                SET price = ROUND(GREATEST(price * (1 + %s/100.0), 0)::NUMERIC, 2)
+                WHERE make_id = %s
+                  AND status IN ('available','reserved')
+            """, [percent, int(pk)])
+            affected = int(cur.rowcount)
+
+        return Response({"affected": affected, "percent": float(percent)}, status=200)

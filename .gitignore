@@ -1,0 +1,10 @@
+# IDE/окружение
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# локальные данные
+.env
+*.env
+db.sqlite3
