@@ -26,7 +26,7 @@ class UserRoleSerializer(serializers.ModelSerializer):
 class MakeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Make
-        fields = '__all__'
+        fields = ["id", "name"]
 
 class ModelSerializer(serializers.ModelSerializer):
     class Meta:

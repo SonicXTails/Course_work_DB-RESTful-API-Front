@@ -11,7 +11,6 @@ def custom_exception_handler(exc, context):
     resp = exception_handler(exc, context)
     if resp is not None:
         return resp
-    # psycopg2 RaiseException → читаемый ответ
     if isinstance(getattr(exc, 'orig', None), RaiseException) or isinstance(exc, RaiseException):
         msg = str(exc)
         for code, (status, text) in MAP.items():

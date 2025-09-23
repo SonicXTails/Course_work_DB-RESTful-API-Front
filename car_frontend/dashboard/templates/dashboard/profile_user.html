@@ -5,7 +5,6 @@
 {% block content %}
 <div class="container py-5" style="max-width: 860px;">
 
-  <!-- Заголовок + создать -->
   <div class="d-flex align-items-center justify-content-between mb-4">
     <h2 class="mb-0">Личный кабинет</h2>
     <button id="createCarBtn" type="button" class="btn btn-success"
@@ -20,7 +19,6 @@
     {% endfor %}
   {% endif %}
 
-  <!-- Карточка профиля -->
   <div class="card border-0 shadow" style="background:#1f2a36;color:#e9ecef;">
     <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
       <strong>Профиль пользователя</strong>
@@ -78,7 +76,6 @@
 
   <hr class="my-5">
 
-  <!-- Мои объявления -->
   <h4 class="mb-3">Мои объявления</h4>
   {% if my_cars %}
     <div class="list-group" id="myCarsList">
@@ -129,7 +126,6 @@
 
 </div>
 
-<!-- Модалка: СОЗДАТЬ -->
 <div class="modal fade" id="createCarModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content" style="background:#1f2a36;color:#e9ecef;">
@@ -153,7 +149,6 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Модель</label>
-              <!-- Больше НЕ disabled: можно вводить вручную всегда -->
               <input name="model_name" class="form-control" list="modelsList" placeholder="Введи или выбери модель" required>
               <datalist id="modelsList"></datalist>
               <div class="form-text">Подсказки появятся после выбора марки; можно ввести модель руками.</div>
@@ -186,7 +181,6 @@
   </div>
 </div>
 
-<!-- Модалка: РЕДАКТИРОВАТЬ -->
 <div class="modal fade" id="editCarModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content" style="background:#1f2a36;color:#e9ecef;">
@@ -283,7 +277,6 @@
 
 </style>
 
-<!-- JS: кратко и по делу -->
 <script>
 (function () {
   // ====== общие ======

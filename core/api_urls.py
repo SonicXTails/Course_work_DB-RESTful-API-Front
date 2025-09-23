@@ -1,12 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (
-    UserViewSet, RoleViewSet, UserRoleViewSet,
-    MakeViewSet, VehicleModelViewSet,
-    CarViewSet, CarImageViewSet,
-    OrderViewSet, TransactionViewSet, ReviewViewSet,
-    AuditLogViewSet, AuditLogAdminViewSet, RegisterViewSet
-)
+from .views import bootstrap, UserViewSet, RoleViewSet, UserRoleViewSet, MakeViewSet, VehicleModelViewSet, CarViewSet, CarImageViewSet, OrderViewSet, TransactionViewSet, ReviewViewSet, AuditLogViewSet, AuditLogAdminViewSet, RegisterViewSet
 
 root = DefaultRouter()
 root.register(r'users', UserViewSet, basename='user')
@@ -39,4 +33,5 @@ urlpatterns = [
     path('public/', include(public.urls)),
     path('admin/', include(admin.urls)),
     path('auth/', include(auth.urls)),
+    path('bootstrap/', bootstrap, name='bootstrap'), 
 ]

@@ -1,13 +1,19 @@
 from django.db import transaction
 from django.utils.decorators import method_decorator
 
+from rest_framework.authentication import TokenAuthentication
+from core.authentication import CsrfExemptSessionAuthentication
 from PIL import Image
 from core.db import call_proc
 from decimal import Decimal, InvalidOperation
 from django.db import connection, transaction 
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework import status
 from core.viewsets import AuditModelViewSet as ModelViewSet
@@ -33,8 +39,17 @@ from core.permissions import IsAdminOrReadOnlyAuthenticated, IsOwnerOrAdminForWr
 class IsSuperuserOrRoleAdmin(BasePermission):
     def has_permission(self, request, view):
         u = request.user
-        return bool(u and u.is_authenticated and (u.is_superuser or ('admin' in getattr(u, 'roles', []))))
-    
+        if not (u and u.is_authenticated):
+            return False
+        if u.is_superuser:
+            return True
+        return UserRole.objects.filter(user=u, role__name__iexact="admin").exists()
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.db.models import Prefetch
+
 # ---------------------------
 # Пользователи
 # ---------------------------
@@ -101,6 +116,7 @@ class UserRoleViewSet(ModelViewSet):
     serializer_class = UserRoleSerializer
     permission_classes = [IsAdminOrReadOnlyAuthenticated]
 
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
     def get_queryset(self):
         qs = super().get_queryset()
         u = self.request.user
@@ -108,13 +124,14 @@ class UserRoleViewSet(ModelViewSet):
             return qs
         return qs.filter(user=u.id)
 
-    @action(detail=False, methods=['put'], url_path='assign',
+    @method_decorator(csrf_exempt, name='dispatch') 
+    @action(detail=False, methods=['post'], url_path='assign',
             permission_classes=[IsSuperuserOrRoleAdmin])
     def assign(self, request):
         user_id = request.data.get('user')
         role_id = request.data.get('role')
         if not user_id or not role_id:
-            return Response({"detail": "Нужны поля 'user' и 'role'."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "user и role обязательны"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(pk=user_id)
@@ -126,41 +143,7 @@ class UserRoleViewSet(ModelViewSet):
 
         UserRole.objects.filter(user=user).delete()
         link = UserRole.objects.create(user=user, role=role)
-
-        return Response(UserRoleSerializer(link).data, status=status.HTTP_200_OK)
-
-# ---------------------------
-# Каталог марок/моделей
-# ---------------------------
-@method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Catalog / Makes']))
-@method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Catalog / Makes']))
-@method_decorator(name='create',         decorator=swagger_auto_schema(tags=['Catalog / Makes']))
-@method_decorator(name='update',         decorator=swagger_auto_schema(tags=['Catalog / Makes']))
-@method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Catalog / Makes']))
-@method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Catalog / Makes']))
-class MakeViewSet(ModelViewSet):
-    queryset = Make.objects.all()
-    serializer_class = MakeSerializer
-    permission_classes = [IsOwnerOrAdminForWrite]
-
-    @action(detail=True, methods=["post"])
-    def bulk_reprice(self, request, pk=None):
-        raw = request.data.get("percent")
-        try:
-            percent = Decimal(str(raw))
-        except (InvalidOperation, TypeError):
-            return Response({"detail": "percent должен быть числом"}, status=400)
-
-        with transaction.atomic(), connection.cursor() as cur:
-            cur.execute("""
-                UPDATE core_car
-                SET price = ROUND(GREATEST(price * (1 + %s/100.0), 0)::NUMERIC, 2)
-                WHERE make_id = %s
-                AND status IN ('available','reserved')
-            """, [percent, int(pk)])
-            affected = cur.rowcount
-
-        return Response({"affected": int(affected), "percent": float(percent)}, status=200)
+        return Response({"id": link.id, "user": link.user.id, "role": link.role.id}, status=status.HTTP_200_OK)
 
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Catalog / Models']))
@@ -185,7 +168,11 @@ class VehicleModelViewSet(ModelViewSet):
 @method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Cars']))
 @method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Cars']))
 class CarViewSet(ModelViewSet):
-    queryset = Car.objects.all()
+    queryset = (Car.objects
+        .select_related("make","model")
+        .prefetch_related(Prefetch("images", queryset=CarImage.objects.only("id","car","image")))
+        .only("VIN","make","model","year","price","status")
+    )
     serializer_class = CarSerializer
     permission_classes = [IsOwnerOrAdminForWrite]
 
@@ -301,7 +288,6 @@ class OrderViewSet(ModelViewSet):
                 return Response({"detail": "Заказ уже не PENDING."},
                                 status=status.HTTP_409_CONFLICT)
 
-            # Меняем статус заказа
             ord_locked.status = Order.Status.CANCELLED
             ord_locked.save()
 
@@ -431,7 +417,7 @@ class ReviewViewSet(ModelViewSet):
 class AuditLogViewSet(ModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
-    permission_classes = [IsSuperuserOrRoleAdmin]  # чтобы роль admin имела доступ
+    permission_classes = [IsSuperuserOrRoleAdmin]
 
 class AuditLogAdminViewSet(ModelViewSet):
     """
@@ -481,13 +467,53 @@ class MakeViewSet(ModelViewSet):
         except (InvalidOperation, TypeError):
             return Response({"detail": "percent должен быть числом"}, status=400)
 
-        with transaction.atomic(), connection.cursor() as cur:
-            cur.execute("""
-                UPDATE core_car
-                SET price = ROUND(GREATEST(price * (1 + %s/100.0), 0)::NUMERIC, 2)
-                WHERE make_id = %s
-                  AND status IN ('available','reserved')
-            """, [percent, int(pk)])
-            affected = int(cur.rowcount)
+        with transaction.atomic():
+            with connection.cursor() as cur:
+                cur.execute("""
+                    SELECT COUNT(*)
+                    FROM core_car
+                    WHERE make_id = %s
+                      AND status IN ('available','reserved')
+                    FOR UPDATE
+                """, [int(pk)])
+                affected = int(cur.fetchone()[0])
+
+                cur.execute("CALL sp_bulk_reprice(%s, %s)", [int(pk), percent])
 
         return Response({"affected": affected, "percent": float(percent)}, status=200)
+    
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def bootstrap(request):
+    user = request.user
+
+    from .models import Make, Model, Car, CarImage
+
+    cars_qs = (
+        Car.objects
+        .select_related("make", "model")
+        .prefetch_related(Prefetch("images", queryset=CarImage.objects.only("id", "car", "image")))
+        .only("VIN", "make", "model", "year", "price", "status", "seller", "created_at")
+    )
+
+    makes  = list(Make.objects.only("id","name").values("id","name"))
+    models = list(Model.objects.only("id","name","make").values("id","name","make"))
+    cars   = list(cars_qs.values("VIN","make","model","year","price","status","seller","created_at"))
+
+    imgs = []
+    for i in CarImage.objects.only("id","car","image").iterator():
+        try:
+            url = i.image.url
+            abs_url = request.build_absolute_uri(url)
+        except Exception:
+            abs_url = request.build_absolute_uri(settings.MEDIA_URL + str(i.image))
+        imgs.append({"id": i.id, "car": getattr(i, "car_id", None), "image": abs_url})
+
+    data = {
+        "me": {"id": user.id, "username": user.username, "is_superuser": user.is_superuser},
+        "makes": makes,
+        "models": models,
+        "cars": cars,
+        "car_images": imgs,
+    }
+    return Response(data)

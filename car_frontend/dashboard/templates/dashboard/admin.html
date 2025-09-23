@@ -43,118 +43,104 @@
   </div>
 
   <div class="d-flex align-items-end gap-3 mb-2">
-  <div class="flex-grow-1">
-    <label for="actorFilter" class="form-label mb-1">Фильтр по исполнителю</label>
-    <select id="actorFilter" class="form-select">
-      <option value="all">Все</option>
-      <option value="admin">Только админ</option>
-      <option value="users">Только пользователи</option>
-      <option value="none">Никто</option>  <!-- NEW -->
-    </select>
-  </div>
+    <div class="flex-grow-1">
+      <label for="actorFilter" class="form-label mb-1">Фильтр по исполнителю</label>
+      <select id="actorFilter" class="form-select">
+        <option value="all">Все</option>
+        <option value="admin">Только админ</option>
+        <option value="users">Только пользователи</option>
+        <option value="none">Никто</option>
+      </select>
+    </div>
 
     <div class="flex-grow-1">
-    <label for="actorSearch" class="form-label mb-1">Поиск по логину</label>
-    <input id="actorSearch" type="text" class="form-control" placeholder="Начни вводить логин…">
+      <label for="actorSearch" class="form-label mb-1">Поиск по логину</label>
+      <input id="actorSearch" type="text" class="form-control" placeholder="Начни вводить логин…">
+    </div>
   </div>
-</div>
 
+  <style>
+    #auditToggleBtn { background-color:#212529; border-color:#343a40; color:#f8f9fa; }
+    #auditToggleBtn:hover { background-color:#343a40; border-color:#212529; }
+    [hidden]{display:none!important;}
+  </style>
 
-<style>
-#auditToggleBtn {
-  background-color: #212529; /* тот же, что у table-dark */
-  border-color: #343a40;
-  color: #f8f9fa;
-}
-#auditToggleBtn:hover {
-  background-color: #343a40;
-  border-color: #212529;
-}
-</style>
+  <div class="d-flex align-items-center justify-content-between mt-3">
+    <h3 class="mb-0">Последние действия</h3>
+    <button id="auditToggleBtn" type="button" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1" aria-expanded="true">
+      Скрыть логи <span class="text-light-emphasis small">(Alt+V)</span>
+    </button>
+  </div>
 
-<div class="d-flex align-items-center justify-content-between mt-3">
-  <h3 class="mb-0">Последние действия</h3>
-  <button id="auditToggleBtn"
-          type="button"
-          class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1"
-          aria-expanded="true">
-    Скрыть логи <span class="text-light-emphasis small">(Alt+V)</span>
-  </button>
-</div>
+  <div class="d-flex align-items-center justify-content-between mt-3">
+    <p class="text-muted small mb-2">
+      Подсказка: нажми <kbd>Alt</kbd>+<kbd>V</kbd>, чтобы быстро скрыть или показать таблицу логов.
+    </p>
+  </div>
 
-<div class="d-flex align-items-center justify-content-between mt-3">
-  <p class="text-muted small mb-2">
-    Подсказка: нажми <kbd>Alt</kbd>+<kbd>V</kbd> , чтобы быстро скрыть или показать таблицу логов.
-  </p>
-</div>
-
-<style>
-  [hidden] { display: none !important; }
-</style>
-
-<section id="auditSection" class="mt-3">
-  <div class="table-responsive">
-    <table class="table table-dark table-striped align-middle">
-      <thead>
-      <tr>
-        <th>Когда</th>
-        <th>Точная дата</th>
-        <th>Пользователь</th>
-        <th>Действие</th>
-        <th>Таблица</th>
-        <th>ID</th>
-        <th>Изменения</th>
-      </tr>
-      </thead>
-      <tbody id="auditBody">
-      {% for log in audit_logs %}
+  <section id="auditSection" class="mt-3">
+    <div class="table-responsive">
+      <table class="table table-dark table-striped align-middle">
+        <thead>
         <tr>
-          <td>{{ log.action_time|naturaltime }}</td>
-          <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
-          <td>
-            {% if log.user_username %}
-              {{ log.user_username }}
-            {% elif log.user %}
-              {{ log.user.username }}
-            {% elif log.actor_label %}
-              {{ log.actor_label }}
-            {% else %}
-              незнакомец
-            {% endif %}
-          </td>
-          <td>
-            {% if log.action == "CREATE" or log.action == "POST" %}
-              <span class="badge bg-success">POST</span>
-            {% elif log.action == "UPDATE" or log.action == "PUT" %}
-              <span class="badge bg-warning text-dark">PUT</span>
-            {% elif log.action == "DELETE" %}
-              <span class="badge bg-danger">DELETE</span>
-            {% else %}
-              <span class="badge bg-secondary">{{ log.action }}</span>
-            {% endif %}
-          </td>
-          <td>{{ log.table_name }}</td>
-          <td>{{ log.record_id }}</td>
-          <td>
-            {% if log.action == "UPDATE" or log.action == "PUT" %}
-              <details><summary>Посмотреть</summary>
-                <div><b>Старое:</b> {{ log.old_data }}</div>
-                <div><b>Новое:</b> {{ log.new_data }}</div>
-              </details>
-            {% elif log.action == "CREATE" or log.action == "POST" %}
-              <span class="text-success">Создано</span>
-            {% elif log.action == "DELETE" %}
-              <span class="text-danger">Удалено</span>
-            {% endif %}
-          </td>
+          <th>Когда</th>
+          <th>Точная дата</th>
+          <th>Пользователь</th>
+          <th>Действие</th>
+          <th>Таблица</th>
+          <th>ID</th>
+          <th>Изменения</th>
         </tr>
-      {% empty %}
-        <tr><td colspan="7" class="text-center text-muted">Нет записей в аудит-логе</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
+        </thead>
+        <tbody id="auditBody">
+        {% for log in audit_logs %}
+          <tr>
+            <td>{{ log.action_time|naturaltime }}</td>
+            <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
+            <td>
+              {% if log.user_username %}
+                {{ log.user_username }}
+              {% elif log.user %}
+                {{ log.user.username }}
+              {% elif log.actor_label %}
+                {{ log.actor_label }}
+              {% else %}
+                система
+              {% endif %}
+            </td>
+            <td>
+              {% if log.action == "CREATE" or log.action == "POST" %}
+                <span class="badge bg-success">POST</span>
+              {% elif log.action == "UPDATE" or log.action == "PUT" %}
+                <span class="badge bg-warning text-dark">PUT</span>
+              {% elif log.action == "DELETE" %}
+                <span class="badge bg-danger">DELETE</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ log.action }}</span>
+              {% endif %}
+            </td>
+            <td>{{ log.table_name }}</td>
+            <td>{{ log.record_id }}</td>
+            <td>
+              {% if log.action == "UPDATE" or log.action == "PUT" %}
+                <details><summary>Посмотреть</summary>
+                  <div><b>Старое:</b> {{ log.old_data }}</div>
+                  <div><b>Новое:</b> {{ log.new_data }}</div>
+                </details>
+              {% elif log.action == "CREATE" or log.action == "POST" %}
+                <span class="text-success">Создано</span>
+              {% elif log.action == "DELETE" %}
+                <span class="text-danger">Удалено</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center text-muted">Нет записей в аудит-логе</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 
   <hr class="my-4">
   <h3 class="mb-3">Назначить роль пользователю</h3>
@@ -194,39 +180,57 @@
 </div>
 
 <style>
-.btn-swagger:hover { background:#6ec11f;color:#fff; border-color:#000; }
-.btn-redoc:hover { background:#1f2a36; color:#fff; border-color:#1a252f; }
+  .btn-swagger:hover { background:#6ec11f;color:#fff; border-color:#000; }
+  .btn-redoc:hover { background:#1f2a36; color:#fff; border-color:#1a252f; }
 
-.btn-swagger { background:#85ea2d; color:#fff; border:2px solid #000; font-weight:600; }
-.btn-swagger .shortcut { color:#000; font-weight:normal; }
+  .btn-swagger { background:#85ea2d; color:#fff; border:2px solid #000; font-weight:600; }
+  .btn-swagger .shortcut { color:#000; font-weight:normal; }
 
-.btn-redoc { background:#2d3e50; color:#fff; border:2px solid #1f2a36; font-weight:600; }
-.btn-redoc .shortcut { color:#e0e0e0; font-weight:normal; }
+  .btn-redoc { background:#2d3e50; color:#fff; border:2px solid #1f2a36; font-weight:600; }
+  .btn-redoc .shortcut { color:#e0e0e0; font-weight:normal; }
 
-.btn-admin { background:#2c3e50; color:#f9f871; border:2px solid #1a252f; font-weight:600; }
-.btn-admin:hover { background:#1f2a36; color:#fff9c4; }
-.btn-admin .shortcut { color:#b0bec5; font-weight:normal; }
+  .btn-admin { background:#2c3e50; color:#f9f871; border:2px solid #1a252f; font-weight:600; }
+  .btn-admin:hover { background:#1f2a36; color:#fff9c4; }
+  .btn-admin .shortcut { color:#b0bec5; font-weight:normal; }
 
-.btn-drf { background:#6f42c1; color:#fff; border:2px solid #563d7c; font-weight:600; }
-.btn-drf:hover { background:#563d7c; }
-.btn-drf .shortcut { color:#d1c4e9; font-weight:normal; }
+  .btn-drf { background:#6f42c1; color:#fff; border:2px solid #563d7c; font-weight:600; }
+  .btn-drf:hover { background:#563d7c; }
+  .btn-drf .shortcut { color:#d1c4e9; font-weight:normal; }
 </style>
 
+<!-- Горячие клавиши на быстрые ссылки -->
 <script>
 document.addEventListener("keydown", function(e) {
   const tag = (e.target?.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
   if (!e.altKey) return;
   switch (e.key) {
-    case "1": document.getElementById("btn-swagger").click(); break;
-    case "2": document.getElementById("btn-redoc").click(); break;
-    case "3": document.getElementById("btn-admin8400").click(); break;
-    case "4": document.getElementById("btn-admin8000").click(); break;
-    case "5": document.getElementById("btn-api").click(); break;
+    case "1": document.getElementById("btn-swagger")?.click(); break;
+    case "2": document.getElementById("btn-redoc")?.click(); break;
+    case "3": document.getElementById("btn-admin8400")?.click(); break;
+    case "4": document.getElementById("btn-admin8000")?.click(); break;
+    case "5": document.getElementById("btn-api")?.click(); break;
   }
 });
 </script>
 
+<!-- ЕДИНЫЙ API BASE и apiFetch — все вызовы летят на API -->
+<script>
+  // ВАЖНО: здесь укажи именно адрес API-инстанса
+  const API_BASE  = "http://127.0.0.1:8000/api/v1";
+  const API_TOKEN = "{{ request.session.api_token|default:'' }}";
+
+  async function apiFetch(path, options = {}) {
+    if (!API_TOKEN) throw new Error("Нет токена в сессии — перелогинься");
+    const url = API_BASE + (path.startsWith("/") ? path : ("/" + path));
+    const headers = { "Authorization": "Token " + API_TOKEN, ...(options.headers || {}) };
+    if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+    // cookies не нужны — используем токен
+    return fetch(url, { ...options, headers, mode: "cors", credentials: "omit" });
+  }
+</script>
+
+<!-- Фильтр и UX для списка пользователей слева -->
 <script>
 (function () {
   const searchInput = document.getElementById('userSearch');
@@ -234,9 +238,7 @@ document.addEventListener("keydown", function(e) {
   const emptyHint   = document.getElementById('userEmptyHint');
   if (!searchInput || !selectEl) return;
 
-  const allOptions = Array.from(selectEl.options).map(o => ({
-    value: o.value, text: o.text
-  })).filter(o => !!o.value);
+  const allOptions = Array.from(selectEl.options).map(o => ({ value: o.value, text: o.text })).filter(o => !!o.value);
 
   function render(list, prefer = null) {
     const prev = prefer ?? (selectEl.value || null);
@@ -279,17 +281,8 @@ document.addEventListener("keydown", function(e) {
 })();
 </script>
 
+<!-- Сабмит назначения роли -->
 <script>
-const API_BASE  = "http://127.0.0.1:8000/api/v1";
-const API_TOKEN = "{{ request.session.api_token|default:'' }}";
-
-async function apiFetch(path, options = {}) {
-  if (!API_TOKEN) throw new Error("Нет токена в сессии — перелогинься");
-  const headers = { "Authorization": "Token " + API_TOKEN, ...(options.headers || {}) };
-  if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-  return fetch(API_BASE + path, { ...options, headers, mode: "cors" });
-}
-
 (function () {
   const form      = document.getElementById("roleForm");
   const userSel   = document.getElementById("userSelect");
@@ -312,7 +305,7 @@ async function apiFetch(path, options = {}) {
       submitBtn.textContent = "Назначаю…";
 
       const res = await apiFetch("/admin/user_roles/assign/", {
-        method: "PUT",
+        method: "POST",
         body: JSON.stringify({ user: userId, role: roleId })
       });
 
@@ -336,24 +329,14 @@ async function apiFetch(path, options = {}) {
 })();
 </script>
 
+<!-- Логи аудита: автообновление, фильтрация, быстрые клавиши -->
 <script>
 (function () {
-  const API_BASE  = "http://127.0.0.1:8000/api/v1";
-  const API_TOKEN = "{{ request.session.api_token|default:'' }}";
-
-  async function apiFetch(path, options = {}) {
-    if (!API_TOKEN) throw new Error("Нет токена в сессии — перелогинься");
-    const headers = { "Authorization": "Token " + API_TOKEN, ...(options.headers || {}) };
-    if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-    return fetch(API_BASE + path, { ...options, headers, mode: "cors" });
-  }
-
   const section  = document.getElementById('auditSection');
   const tbody    = document.getElementById('auditBody');
   const btn      = document.getElementById('auditToggleBtn');
   const filterEl = document.getElementById('actorFilter');
   const searchEl = document.getElementById('actorSearch');
-
   if (!section || !tbody || !btn) return;
 
   btn.disabled = false;
@@ -384,7 +367,7 @@ async function apiFetch(path, options = {}) {
                 : a==='DELETE' ? '<span class="badge bg-danger">DELETE</span>'
                 : `<span class="badge bg-secondary">${a}</span>`;
 
-  const actorName = log => log.actor_label || log.user_username || 'незнакомец';
+  const actorName = log => log.actor_label || log.user_username || 'система';
 
   const rowHtml = log => {
     const whenHuman = ago(log.action_time);
@@ -413,11 +396,7 @@ async function apiFetch(path, options = {}) {
 
   const isAdminLog = log => (log.actor_label || '').toLowerCase().startsWith('admin:');
   const isUserLog  = log => (log.user != null) && !isAdminLog(log);
-
-  const isNoneLog  = log =>
-    !log?.actor_label &&
-    (log?.user == null || log?.user === undefined) &&
-    !log?.user_username;
+  const isNoneLog  = log => !log?.actor_label && (log?.user == null || log?.user === undefined) && !log?.user_username;
 
   function passesFilter(log) {
     const mode = filterEl ? filterEl.value : 'all';
@@ -480,21 +459,6 @@ async function apiFetch(path, options = {}) {
     });
   }
 
-  function applyHidden(hidden) {
-    if (hidden) {
-      section.style.display = 'none';
-      btn.textContent = 'Показать логи';
-      btn.classList.add('collapsed');
-      localStorage.setItem(LS_KEY, '1');
-    } else {
-      section.style.display = '';
-      btn.textContent = 'Скрыть логи';
-      btn.classList.remove('collapsed');
-      localStorage.setItem(LS_KEY, '0');
-      fetchLogs();
-    }
-  }
-
   document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchLogs(); });
   filterEl?.addEventListener('change', render);
   searchEl?.addEventListener('input', () => { clearTimeout(render._t); render._t = setTimeout(render, 150); });
@@ -504,7 +468,7 @@ async function apiFetch(path, options = {}) {
 })();
 </script>
 
-
+<!-- Кнопка скрыть/показать логи + хоткей Alt+V -->
 <script>
 (function () {
   const section = document.getElementById('auditSection');
@@ -516,8 +480,7 @@ async function apiFetch(path, options = {}) {
   function setHidden(hidden) {
     section.hidden = !!hidden;
     btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-    btn.innerHTML = (hidden ? 'Показать' : 'Скрыть') +
-      ' логи <span class="text-light-emphasis small">(Alt+V)</span>';
+    btn.innerHTML = (hidden ? 'Показать' : 'Скрыть') + ' логи <span class="text-light-emphasis small">(Alt+V)</span>';
     localStorage.setItem(LS_KEY, hidden ? '1' : '0');
   }
 
@@ -528,10 +491,9 @@ async function apiFetch(path, options = {}) {
   document.addEventListener('keydown', (e) => {
     const tag = (document.activeElement?.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || document.activeElement?.isContentEditable) return;
-
     if (e.altKey && !e.ctrlKey && e.code === 'KeyV') {
       e.preventDefault();
-      document.getElementById('auditToggleBtn')?.click();
+      btn.click();
     }
   });
 })();
@@ -568,19 +530,18 @@ async function apiFetch(path, options = {}) {
 
 <script>
 (function () {
-  // элементы
   const makeSel   = document.getElementById('repriceMake');
   const percentEl = document.getElementById('repricePercent');
   const btn       = document.getElementById('repriceBtn');
   const out       = document.getElementById('repriceResult');
 
-  // если список брендов не пришёл в контексте, подтащим из API
+  // Подтягиваем бренды из API, если в шаблон не подложили (или пусто)
   async function ensureMakes() {
     if (!makeSel) return;
     const hasOnlyPlaceholder = makeSel.options.length <= 1;
     if (!hasOnlyPlaceholder) return;
     try {
-      const r = await apiFetch('/makes/?ordering=name&limit=200');
+      const r = await apiFetch("/makes/?ordering=name&limit=200");
       if (!r.ok) return;
       const data = await r.json();
       data.forEach(m => {
@@ -591,7 +552,6 @@ async function apiFetch(path, options = {}) {
     } catch (_) {}
   }
 
-  // обработчик клика
   btn?.addEventListener('click', async () => {
     const id = Number(makeSel?.value);
     const p  = Number(percentEl?.value);
@@ -604,7 +564,7 @@ async function apiFetch(path, options = {}) {
     btn.textContent = 'Пересчитываю…';
     try {
       const res = await apiFetch(`/makes/${id}/bulk_reprice/`, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({ percent: p })
       });
       let data = null; try { data = await res.json(); } catch(_) {}
@@ -621,7 +581,6 @@ async function apiFetch(path, options = {}) {
     }
   });
 
-  // хоткей Alt+R — фокус на поле процента
   document.addEventListener('keydown', (e) => {
     const tag = (document.activeElement?.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || document.activeElement?.isContentEditable) return;
