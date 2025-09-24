@@ -212,11 +212,18 @@
                   </div>
 
                   {% if user and car.status == 'available' %}
-                    <button
-                      class="btn btn-success btn-sm reserve-btn"
-                      data-vin="{{ car.VIN }}">
-                      Зарезервировать
-                    </button>
+                    {% if user.id != car.seller %}
+                      <button
+                        class="btn btn-success btn-sm reserve-btn"
+                        data-vin="{{ car.VIN }}"
+                        data-seller="{{ car.seller }}">
+                        Зарезервировать
+                      </button>
+                    {% else %}
+                      <button class="btn btn-secondary btn-sm" disabled title="Это ваш автомобиль">
+                        Нельзя резервировать своё авто
+                      </button>
+                    {% endif %}
                   {% endif %}
 
                   <dl class="row g-2 small mb-4">
@@ -328,6 +335,7 @@
 (function () {
   const API_BASE  = "http://127.0.0.1:8000/api/v1";
   const API_TOKEN = "{{ request.session.api_token|default:'' }}";
+  const ME_ID     = {{ user.id|default:'null' }};  // ← добавили
 
   async function apiFetch(path, options = {}) {
     if (!API_TOKEN) throw new Error("Нет токена в сессии — авторизуйся.");
@@ -341,6 +349,13 @@
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('.reserve-btn');
     if (!btn) return;
+
+    // гард — на всякий случай
+    const sellerId = btn.dataset.seller;
+    if (ME_ID && sellerId && String(ME_ID) === String(sellerId)) {
+      alert('Это ваше объявление. Резерв недоступен.');
+      return;
+    }
 
     const vin = btn.dataset.vin;
     btn.disabled = true; const prev = btn.textContent; btn.textContent = 'Резерв...';

@@ -30,8 +30,8 @@
           <button id="orderBtn"
                   class="btn btn-primary btn-sm"
                   data-vin="{{ car.VIN }}"
-                  {% if car.status != 'available' %}disabled{% endif %}>
-            Оформить заказ
+                  {% if car.status != 'available' or me and me.id == car.seller %}disabled{% endif %}>
+            {% if me and me.id == car.seller %}Нельзя купить своё авто{% else %}Оформить заказ{% endif %}
           </button>
 
           <button id="payBtn" class="btn btn-success btn-sm" disabled>

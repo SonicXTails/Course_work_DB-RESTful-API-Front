@@ -6,12 +6,8 @@ from .models import *
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = [
-            'id', 'username', 'email',
-            'first_name', 'last_name',
-            'is_staff', 'is_superuser',
-        ]
-        read_only_fields = ['is_staff', 'is_superuser']
+        fields = ["id", "username", "first_name", "last_name", "email", "is_superuser", "is_staff"]
+        read_only_fields = ["id", "is_superuser", "is_staff"]
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:

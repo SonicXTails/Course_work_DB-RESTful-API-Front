@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import connection, transaction 
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+from django.db.models import Q
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
@@ -176,6 +177,15 @@ class CarViewSet(ModelViewSet):
     serializer_class = CarSerializer
     permission_classes = [IsOwnerOrAdminForWrite]
 
+    def get_queryset(self):
+        qs = (Car.objects
+              .select_related("make", "model")
+              .prefetch_related(Prefetch("images", queryset=CarImage.objects.only("id","car","image"))))
+
+        if getattr(self, 'action', None) in ("list", "retrieve"):
+            return qs.only("VIN","make","model","year","price","status")
+        return qs
+    
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
 
@@ -248,26 +258,61 @@ class CarImageViewSet(ModelViewSet):
 @method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Orders']))
 @method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Orders']))
 class OrderViewSet(ModelViewSet):
+    """
+    Заказы.
+
+    Видимость:
+      - Админ видит все.
+      - Обычный пользователь видит:
+          * свои покупки (buyer == request.user)
+          * заказы на свои машины (car.seller == request.user).
+    """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsOwnerOrAdminForWrite]
 
+    # ---------- READ SCOPE ----------
+    def get_queryset(self):
+        u = self.request.user
+        qs = (Order.objects
+              .select_related('car', 'buyer')
+              .only('id', 'status', 'order_date', 'total_amount', 'car', 'buyer'))
+        if not (u and u.is_authenticated):
+            return qs.none()
+
+        is_admin = bool(u.is_superuser or ('admin' in getattr(u, 'roles', [])))
+        if is_admin:
+            return qs
+        return qs.filter(Q(buyer=u) | Q(car__seller=u))
+
+    # ---------- CREATE ----------
     def perform_create(self, serializer):
         serializer.save(buyer=self.request.user)
 
-    @action(detail=True, methods=['post'], url_path='seller_cancel',
-            permission_classes=[IsAuthenticated])
+    # ---------- CANCEL BY DB FUNCTION (IF YOU USE IT) ----------
+    @action(detail=True, methods=['post'], url_path='cancel', permission_classes=[IsAuthenticated])
+    def cancel_via_sp(self, request, pk=None):
+        """
+        Отмена заказа через БД-функцию `sp_cancel_reservation(order_id, reason)`.
+        POST /api/v1/orders/{id}/cancel/ {"reason": "..."}
+        """
+        reason = request.data.get('reason')
+        call_proc("SELECT sp_cancel_reservation(%s, %s);", [pk, reason])
+        obj = Order.objects.get(pk=pk)
+        return Response(OrderSerializer(obj, context={'request': request}).data, status=status.HTTP_200_OK)
+
+    # ---------- SELLER CANCEL ----------
+    @action(detail=True, methods=['post'], url_path='seller_cancel', permission_classes=[IsAuthenticated])
     def seller_cancel(self, request, pk=None):
         """
-        POST /api/v1/orders/{id}/seller_cancel/
-        Продавец (владелец car.seller) или админ отменяет PENDING-заказ.
+        Продавец (car.seller) или админ отменяет PENDING-заказ.
         Возвращает Order.
         """
         order = self.get_object()
         u = request.user
         is_admin = bool(u and u.is_authenticated and (u.is_superuser or ('admin' in getattr(u, 'roles', []))))
 
-        if not (is_admin or (order.car and order.car.seller_id == u.id)):
+        if not (is_admin or (order.car and getattr(order.car, 'seller_id', None) == u.id)):
             return Response({"detail": "Только продавец или админ может отменить заказ."},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -279,23 +324,30 @@ class OrderViewSet(ModelViewSet):
 
         with transaction.atomic():
             ord_locked = (
-                Order.objects.select_for_update()
+                Order.objects.select_for_update(of=('self',))
                 .select_related('car')
                 .get(pk=order.pk)
             )
 
             if ord_locked.status != Order.Status.PENDING:
-                return Response({"detail": "Заказ уже не PENDING."},
-                                status=status.HTTP_409_CONFLICT)
+                return Response({"detail": "Заказ уже не PENDING."}, status=status.HTTP_409_CONFLICT)
 
+            # 1) Отменяем заказ
             ord_locked.status = Order.Status.CANCELLED
-            ord_locked.save()
+            ord_locked.save(update_fields=['status'])
 
+            # 2) Отменяем все незавершённые транзакции
             Transaction.objects.filter(
                 order=ord_locked,
                 status=Transaction.Status.PENDING
             ).update(status=Transaction.Status.CANCELLED)
 
+            # 3) Возвращаем авто в продажу
+            if ord_locked.car and ord_locked.car.status != Car.Status.AVAILABLE:
+                ord_locked.car.status = Car.Status.AVAILABLE
+                ord_locked.car.save(update_fields=['status'])
+
+            # 4) Аудит (по желанию)
             try:
                 AuditLog.objects.create(
                     user=u,
@@ -307,15 +359,57 @@ class OrderViewSet(ModelViewSet):
             except Exception:
                 pass
 
+        return Response(OrderSerializer(ord_locked, context={'request': request}).data, status=status.HTTP_200_OK)
+
+    # ---------- CONFIRM / COMPLETE SALE ----------
     @action(detail=True, methods=['post'], url_path='confirm', permission_classes=[IsAuthenticated])
     def confirm(self, request, pk=None):
         """
-        Вызывает sp_complete_sale(<order_id>), возвращает созданную Transaction.
-        В миграции у тебя функция называется sp_complete_sale (не sp_confirm_order).
+        Завершение продажи: вызывает sp_complete_sale(order_id),
+        который создаёт Transaction и выставляет статусы.
+        Возвращает созданную Transaction.
         """
         tx_id = call_proc("SELECT sp_complete_sale(%s);", [pk])
         tx = Transaction.objects.get(pk=tx_id)
         return Response(TransactionSerializer(tx, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+    # ---------- OPTIONAL: CANCEL EXPIRED PENDING ORDERS ----------
+    @action(detail=False, methods=['post'], url_path='cancel_expired', permission_classes=[IsAuthenticated])
+    def cancel_expired(self, request):
+        """
+        Массовая отмена протухших PENDING-заказов (резерв 20 минут).
+        Полезно для фронта, который «пингует» этот эндпоинт.
+        Возвращает {cancelled: <int>}.
+        """
+        now = timezone.now()
+        expired = (Order.objects
+                   .select_related('car')
+                   .filter(status=Order.Status.PENDING,
+                           order_date__lte=now - timedelta(minutes=20)))
+
+        cancelled_cnt = 0
+        with transaction.atomic():
+            # Лочим и обрабатываем партиями
+            for ord_locked in expired.select_for_update(of=('self',)):
+                # На случай гонок — перепроверка
+                if ord_locked.status != Order.Status.PENDING:
+                    continue
+
+                ord_locked.status = Order.Status.CANCELLED
+                ord_locked.save(update_fields=['status'])
+
+                Transaction.objects.filter(
+                    order=ord_locked,
+                    status=Transaction.Status.PENDING
+                ).update(status=Transaction.Status.CANCELLED)
+
+                if ord_locked.car and ord_locked.car.status != Car.Status.AVAILABLE:
+                    ord_locked.car.status = Car.Status.AVAILABLE
+                    ord_locked.car.save(update_fields=['status'])
+
+                cancelled_cnt += 1
+
+        return Response({"cancelled": cancelled_cnt}, status=status.HTTP_200_OK)
 
 @method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Payments']))
 @method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Payments']))
@@ -474,7 +568,6 @@ class MakeViewSet(ModelViewSet):
                     FROM core_car
                     WHERE make_id = %s
                       AND status IN ('available','reserved')
-                    FOR UPDATE
                 """, [int(pk)])
                 affected = int(cur.fetchone()[0])
 
@@ -510,7 +603,15 @@ def bootstrap(request):
         imgs.append({"id": i.id, "car": getattr(i, "car_id", None), "image": abs_url})
 
     data = {
-        "me": {"id": user.id, "username": user.username, "is_superuser": user.is_superuser},
+        "me": {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "is_superuser": user.is_superuser,
+            "is_staff": getattr(user, "is_staff", False),
+        },
         "makes": makes,
         "models": models,
         "cars": cars,
