@@ -4,9 +4,11 @@ from django.utils.decorators import method_decorator
 from rest_framework.authentication import TokenAuthentication
 from core.authentication import CsrfExemptSessionAuthentication
 from PIL import Image
+from rest_framework.viewsets import ModelViewSet as DRFModelViewSet
 from core.db import call_proc
 from django.db import models
 from decimal import Decimal, InvalidOperation
+from django.contrib.auth import get_user_model
 from django.db import connection, transaction 
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
@@ -51,6 +53,50 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Prefetch
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def bootstrap(request):
+    user = request.user
+
+    cars_qs = (
+        Car.objects
+        .select_related("make", "model")
+        .prefetch_related(Prefetch("images", queryset=CarImage.objects.only("id", "car", "image")))
+        .only("VIN", "make", "model", "year", "price", "status", "seller", "created_at")
+    )
+
+    makes  = list(Make.objects.only("id", "name").values("id", "name"))
+    models = list(Model.objects.only("id", "name", "make").values("id", "name", "make"))
+    cars   = list(cars_qs.values("VIN", "make", "model", "year", "price", "status", "seller", "created_at"))
+
+    imgs = []
+    for i in CarImage.objects.only("id", "car", "image").iterator():
+        try:
+            url = i.image.url
+            abs_url = request.build_absolute_uri(url)
+        except Exception:
+            abs_url = request.build_absolute_uri(settings.MEDIA_URL + str(i.image))
+        imgs.append({"id": i.id, "car": getattr(i, "car_id", None), "image": abs_url})
+
+    data = {
+        "me": {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "is_superuser": user.is_superuser,
+            "is_staff": getattr(user, "is_staff", False),
+        },
+        "makes": makes,
+        "models": models,
+        "cars": cars,
+        "car_images": imgs,
+    }
+    return Response(data)
 
 # ---------------------------
 # Пользователи
@@ -575,87 +621,3 @@ class MakeViewSet(ModelViewSet):
                 cur.execute("CALL sp_bulk_reprice(%s, %s)", [int(pk), percent])
 
         return Response({"affected": affected, "percent": float(percent)}, status=200)
-
-from django.conf import settings
-from django.core.validators import MinValueValidator, MaxValueValidator
-
-class UserSettings(models.Model):
-    class Theme(models.TextChoices):
-        SYSTEM = "system", "System"
-        LIGHT = "light", "Light"
-        DARK = "dark", "Dark"
-
-
-    class DateFormat(models.TextChoices):
-        ISO = "YYYY-MM-DD", "YYYY-MM-DD"
-        RU = "DD.MM.YYYY", "DD.MM.YYYY"
-        US = "MM/DD/YYYY", "MM/DD/YYYY"
-
-
-    class NumberFormat(models.TextChoices):
-        EU = "1 234,56", "1 234,56" # пробел — разделитель тысяч, запятая — дробная
-        US = "1,234.56", "1,234.56"
-
-
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="settings")
-    theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.SYSTEM)
-    date_format = models.CharField(max_length=12, choices=DateFormat.choices, default=DateFormat.RU)
-    number_format = models.CharField(max_length=12, choices=NumberFormat.choices, default=NumberFormat.EU)
-    page_size = models.PositiveSmallIntegerField(default=20, validators=[MinValueValidator(5), MaxValueValidator(200)])
-    saved_filters = models.JSONField(default=dict, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(check=models.Q(page_size__gte=5) & models.Q(page_size__lte=200), name="usersettings_page_size_range"),
-        ]
-
-
-    def __str__(self):
-        return f"Settings<{self.user_id}>"
-    
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def bootstrap(request):
-    user = request.user
-
-    from .models import Make, Model, Car, CarImage
-
-    cars_qs = (
-        Car.objects
-        .select_related("make", "model")
-        .prefetch_related(Prefetch("images", queryset=CarImage.objects.only("id", "car", "image")))
-        .only("VIN", "make", "model", "year", "price", "status", "seller", "created_at")
-    )
-
-    makes  = list(Make.objects.only("id","name").values("id","name"))
-    models = list(Model.objects.only("id","name","make").values("id","name","make"))
-    cars   = list(cars_qs.values("VIN","make","model","year","price","status","seller","created_at"))
-
-    imgs = []
-    for i in CarImage.objects.only("id","car","image").iterator():
-        try:
-            url = i.image.url
-            abs_url = request.build_absolute_uri(url)
-        except Exception:
-            abs_url = request.build_absolute_uri(settings.MEDIA_URL + str(i.image))
-        imgs.append({"id": i.id, "car": getattr(i, "car_id", None), "image": abs_url})
-
-    data = {
-        "me": {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "is_superuser": user.is_superuser,
-            "is_staff": getattr(user, "is_staff", False),
-        },
-        "makes": makes,
-        "models": models,
-        "cars": cars,
-        "car_images": imgs,
-    }
-    return Response(data)

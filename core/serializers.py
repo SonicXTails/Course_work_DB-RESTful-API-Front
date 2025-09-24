@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 from datetime import timedelta
+from .models import BackupFile
 from .models import *
 
 class UserSerializer(serializers.ModelSerializer):
@@ -117,3 +118,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', '')
         )
         return user
+    
+class BackupFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BackupFile
+        fields = ["id", "created_at", "created_by", "method", "status", "file_size", "checksum_sha256", "log"]
+        read_only_fields = fields

@@ -12,10 +12,27 @@
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous">
 
+  <!-- hotkeys: прелоад -->
+  <link rel="preload" href="{% static 'js/hotkeys.js' %}" as="script">
+
+  {# ВОТ ЭТО ГЛАВНОЕ — flex-раскладка страницы #}
   <style>
-    body { min-height: 100vh; display: flex; flex-direction: column; }
-    footer { margin-top: auto; }
+    html, body { height: 100%; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    main { flex: 1 0 auto; }   /* контент растягивается */
+    footer { margin-top: auto; }/* футер уезжает вниз */
   </style>
+
+  {% if request.user.is_authenticated %}
+    <meta name="is-staff" content="{% if request.user.is_staff %}1{% else %}0{% endif %}">
+  {% endif %}
+  {% if request.session.api_token %}
+    <meta name="api-token" content="Token {{ request.session.api_token }}">
+  {% endif %}
 </head>
 <body>
   <!-- НАВБАР -->
@@ -40,29 +57,33 @@
     </div>
   </nav>
 
+  <!-- Сообщения Django -->
+  {% if messages %}
+    <div class="container mt-3" style="max-width:1200px;">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mb-2" role="alert">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <!-- КОНТЕНТ -->
   <main class="container my-4">
     {% block content %}{% endblock %}
   </main>
 
-  <!-- ПОДВАЛ -->
+  <!-- ПОДВАЛ (прижат к низу) -->
   <footer class="bg-dark text-light text-center py-3">
     <div class="container">
       <p class="mb-0">&copy; 2025 МойСайт. Все права защищены.</p>
     </div>
   </footer>
 
-  <!-- Bootstrap 5.3.3 JS (bundle) -->
+  <!-- Bootstrap bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
           integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
           crossorigin="anonymous"></script>
+
+  <!-- hotkeys -->
+  <script src="{% static 'js/hotkeys.js' %}"></script>
 </body>
 </html>
-
-{% if messages %}
-  <div class="container mt-3" style="max-width:1200px;">
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} mb-2" role="alert">{{ message }}</div>
-    {% endfor %}
-  </div>
-{% endif %}

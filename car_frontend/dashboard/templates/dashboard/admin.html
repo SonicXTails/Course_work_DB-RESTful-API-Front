@@ -528,6 +528,179 @@ document.addEventListener("keydown", function(e) {
 
 <div id="repriceResult" class="mt-2"></div>
 
+
+<hr class="my-4">
+<h3 class="mb-3 d-flex align-items-center justify-content-between">
+  <span>Резервные копии БД</span>
+  <button id="backupsToggleBtn" type="button" class="btn btn-outline-dark btn-sm">
+    Скрыть бэкапы <small class="text-muted">(Alt+K)</small>
+  </button>
+</h3>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+  <button id="btnBackupNow" class="btn btn-success">
+    Сделать бэкап <small class="text-dark-emphasis">(Alt+B)</small>
+  </button>
+  <button id="btnBackupsReload" class="btn btn-outline-secondary">
+    Обновить список <small class="text-muted">(Alt+L)</small>
+  </button>
+  <span class="text-muted small ms-auto">
+    Планировщик: ежедневно в <code>00:00</code> (локальная TZ проекта)
+  </span>
+</div>
+
+<section id="backupsSection">
+  <div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Когда</th>
+          <th>Размер</th>
+          <th>SHA-256</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="backupsBody">
+        <tr><td colspan="6" class="text-center text-muted">Загружаю…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+(function () {
+  const API = {
+    list:     () => apiFetch("/backups/"),
+    create:   () => apiFetch("/backups/", { method: "POST" }),
+    download: (id) => apiFetch(`/backups/${id}/download/`),
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+  const body = $("#backupsBody");
+  const btnNow = $("#btnBackupNow");
+  const btnReload = $("#btnBackupsReload");
+  const section = $("#backupsSection");
+  const toggleBtn = $("#backupsToggleBtn");
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const fmtWhen = (iso) => {
+    try {
+      const d = new Date(iso);
+      return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    } catch (_) { return iso || "—"; }
+  };
+  const fmtSize = (n) => {
+    const b = Number(n||0);
+    if (b >= 1024*1024*1024) return (b/1073741824).toFixed(2)+" ГБ";
+    if (b >= 1024*1024)     return (b/1048576).toFixed(2)+" МБ";
+    if (b >= 1024)          return (b/1024).toFixed(1)+" КБ";
+    return b+" Б";
+  };
+
+  async function loadBackups() {
+    body.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Загружаю…</td></tr>`;
+    try {
+      const res = await API.list();
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
+      if (!items.length) {
+        body.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Бэкапов пока нет</td></tr>`;
+        return;
+      }
+      body.innerHTML = items.map(it => {
+        const sha = (it.checksum_sha256 || "").slice(0, 12);
+        const st = String(it.status || "").toLowerCase();
+        const badge = st === "success" ? "success" : (st === "pending" ? "secondary" : "danger");
+        const fn = `backup_${it.id || ""}.sql.gz`;
+        const disabled = st !== "success" ? "disabled" : "";
+        return `<tr>
+          <td>${it.id}</td>
+          <td>${fmtWhen(it.created_at)}</td>
+          <td>${fmtSize(it.file_size)}</td>
+          <td><code title="${it.checksum_sha256 || ''}">${sha || "—"}</code></td>
+          <td><span class="badge bg-${badge}">${st}</span></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary" data-dl="${it.id}" data-fn="${fn}" ${disabled}>Скачать</button>
+          </td>
+        </tr>`;
+      }).join("");
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Ошибка загрузки списка</td></tr>`;
+    }
+  }
+
+  async function downloadBackup(id, filename) {
+    try {
+      const res = await API.download(id);
+      if (!res.ok) throw new Error("HTTP "+res.status);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename || ("backup_"+id+".sql.gz");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch (e) {
+      alert("Не удалось скачать бэкап: "+String(e));
+    }
+  }
+
+  async function createBackup() {
+    btnNow.disabled = true;
+    const old = btnNow.textContent;
+    btnNow.textContent = "Делаю бэкап…";
+    try {
+      const res = await API.create();
+      const data = await res.json().catch(()=> ({}));
+      if (res.ok && (data.status || "").toLowerCase() === "success") {
+        await loadBackups();
+      } else {
+        const msg = data.detail || data.log || JSON.stringify(data);
+        alert("Не удалось сделать бэкап: "+msg);
+      }
+    } catch (e) {
+      alert("Ошибка запроса: "+String(e));
+    } finally {
+      btnNow.disabled = false;
+      btnNow.textContent = old;
+    }
+  }
+
+  // Тоггл видимости таблицы (Alt+K), запоминаем в localStorage
+  const LS_KEY = "backups_table_hidden";
+  function setHidden(hidden) {
+    section.hidden = !!hidden;
+    toggleBtn.textContent = (hidden ? "Показать бэкапы" : "Скрыть бэкапы");
+    toggleBtn.insertAdjacentHTML("beforeend", ' <small class="text-muted">(Alt+K)</small>');
+    localStorage.setItem(LS_KEY, hidden ? "1" : "0");
+  }
+  setHidden(localStorage.getItem(LS_KEY) === "1");
+  toggleBtn?.addEventListener("click", () => setHidden(!section.hidden));
+  document.addEventListener("keydown", (e) => {
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || document.activeElement?.isContentEditable) return;
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && e.code === "KeyK") {
+      e.preventDefault();
+      toggleBtn?.click();
+    }
+  });
+
+  body.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-dl]");
+    if (btn) downloadBackup(btn.getAttribute("data-dl"), btn.getAttribute("data-fn"));
+  });
+
+  btnNow?.addEventListener("click", createBackup);
+  btnReload?.addEventListener("click", loadBackups);
+
+  // первая загрузка
+  loadBackups();
+})();
+</script>
+
 <script>
 (function () {
   const makeSel   = document.getElementById('repriceMake');

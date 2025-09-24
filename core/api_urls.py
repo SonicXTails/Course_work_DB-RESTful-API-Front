@@ -1,6 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import bootstrap, UserViewSet, RoleViewSet, UserRoleViewSet, MakeViewSet, VehicleModelViewSet, CarViewSet, CarImageViewSet, OrderViewSet, TransactionViewSet, ReviewViewSet, AuditLogViewSet, AuditLogAdminViewSet, RegisterViewSet
+from .viewsets import BackupViewSet
+from .views import (
+    bootstrap,
+    UserViewSet, RoleViewSet, UserRoleViewSet,
+    MakeViewSet, VehicleModelViewSet, CarViewSet, CarImageViewSet,
+    OrderViewSet, TransactionViewSet, ReviewViewSet,
+    AuditLogViewSet, AuditLogAdminViewSet, RegisterViewSet,
+)
+from .viewsets import BackupViewSet
 
 root = DefaultRouter()
 root.register(r'users', UserViewSet, basename='user')
@@ -12,6 +20,7 @@ root.register(r'orders', OrderViewSet, basename='order')
 root.register(r'transactions', TransactionViewSet, basename='transaction')
 root.register(r'reviews', ReviewViewSet, basename='review')
 root.register(r'audit_logs', AuditLogViewSet, basename='auditlog')
+root.register(r'backups', BackupViewSet, basename='backup')
 
 public = DefaultRouter()
 public.register(r'cars', CarViewSet, basename='car-public')
