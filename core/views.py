@@ -5,6 +5,7 @@ from rest_framework.authentication import TokenAuthentication
 from core.authentication import CsrfExemptSessionAuthentication
 from PIL import Image
 from core.db import call_proc
+from django.db import models
 from decimal import Decimal, InvalidOperation
 from django.db import connection, transaction 
 from django.views.decorators.csrf import csrf_exempt
@@ -574,6 +575,46 @@ class MakeViewSet(ModelViewSet):
                 cur.execute("CALL sp_bulk_reprice(%s, %s)", [int(pk), percent])
 
         return Response({"affected": affected, "percent": float(percent)}, status=200)
+
+from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+class UserSettings(models.Model):
+    class Theme(models.TextChoices):
+        SYSTEM = "system", "System"
+        LIGHT = "light", "Light"
+        DARK = "dark", "Dark"
+
+
+    class DateFormat(models.TextChoices):
+        ISO = "YYYY-MM-DD", "YYYY-MM-DD"
+        RU = "DD.MM.YYYY", "DD.MM.YYYY"
+        US = "MM/DD/YYYY", "MM/DD/YYYY"
+
+
+    class NumberFormat(models.TextChoices):
+        EU = "1 234,56", "1 234,56" # пробел — разделитель тысяч, запятая — дробная
+        US = "1,234.56", "1,234.56"
+
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="settings")
+    theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.SYSTEM)
+    date_format = models.CharField(max_length=12, choices=DateFormat.choices, default=DateFormat.RU)
+    number_format = models.CharField(max_length=12, choices=NumberFormat.choices, default=NumberFormat.EU)
+    page_size = models.PositiveSmallIntegerField(default=20, validators=[MinValueValidator(5), MaxValueValidator(200)])
+    saved_filters = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(check=models.Q(page_size__gte=5) & models.Q(page_size__lte=200), name="usersettings_page_size_range"),
+        ]
+
+
+    def __str__(self):
+        return f"Settings<{self.user_id}>"
     
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

@@ -1,0 +1,41 @@
+from django.db import migrations, models
+from django.conf import settings
+import django.db.models.deletion
+
+
+
+
+def create_settings_for_existing_users(apps, schema_editor):
+    User = apps.get_model('core', 'User')
+    UserSettings = apps.get_model('core', 'UserSettings')
+    for u in User.objects.all().only('id'):
+        UserSettings.objects.get_or_create(user_id=u.id)
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ('core', '0013_sp_cancel_reservation'),
+    ]
+
+
+operations = [
+    migrations.CreateModel(
+        name='UserSettings',
+        fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+            ('theme', models.CharField(choices=[('system', 'System'), ('light', 'Light'), ('dark', 'Dark')], default='system', max_length=10)),
+            ('date_format', models.CharField(choices=[('YYYY-MM-DD', 'YYYY-MM-DD'), ('DD.MM.YYYY', 'DD.MM.YYYY'), ('MM/DD/YYYY', 'MM/DD/YYYY')], default='DD.MM.YYYY', max_length=12)),
+            ('number_format', models.CharField(choices=[('1 234,56', '1 234,56'), ('1,234.56', '1,234.56')], default='1 234,56', max_length=12)),
+            ('page_size', models.PositiveSmallIntegerField(default=20)),
+            ('saved_filters', models.JSONField(blank=True, default=dict)),
+            ('created_at', models.DateTimeField(auto_now_add=True)),
+            ('updated_at', models.DateTimeField(auto_now=True)),
+            ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='settings', to=settings.AUTH_USER_MODEL)),
+        ],
+    ),
+    migrations.AddConstraint(
+        model_name='usersettings',
+        constraint=models.CheckConstraint(check=models.Q(('page_size__gte', 5), ('page_size__lte', 200)), name='usersettings_page_size_range'),
+    ),
+    migrations.RunPython(create_settings_for_existing_users, reverse_code=migrations.RunPython.noop),
+]
