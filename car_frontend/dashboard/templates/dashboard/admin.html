@@ -198,7 +198,6 @@
   .btn-drf .shortcut { color:#d1c4e9; font-weight:normal; }
 </style>
 
-<!-- Горячие клавиши на быстрые ссылки -->
 <script>
 document.addEventListener("keydown", function(e) {
   const tag = (e.target?.tagName || '').toLowerCase();
@@ -214,9 +213,7 @@ document.addEventListener("keydown", function(e) {
 });
 </script>
 
-<!-- ЕДИНЫЙ API BASE и apiFetch — все вызовы летят на API -->
 <script>
-  // ВАЖНО: здесь укажи именно адрес API-инстанса
   const API_BASE  = "http://127.0.0.1:8000/api/v1";
   const API_TOKEN = "{{ request.session.api_token|default:'' }}";
 
@@ -230,7 +227,6 @@ document.addEventListener("keydown", function(e) {
   }
 </script>
 
-<!-- Фильтр и UX для списка пользователей слева -->
 <script>
 (function () {
   const searchInput = document.getElementById('userSearch');
@@ -281,7 +277,6 @@ document.addEventListener("keydown", function(e) {
 })();
 </script>
 
-<!-- Сабмит назначения роли -->
 <script>
 (function () {
   const form      = document.getElementById("roleForm");
@@ -329,7 +324,6 @@ document.addEventListener("keydown", function(e) {
 })();
 </script>
 
-<!-- Логи аудита: автообновление, фильтрация, быстрые клавиши -->
 <script>
 (function () {
   const section  = document.getElementById('auditSection');
@@ -468,7 +462,6 @@ document.addEventListener("keydown", function(e) {
 })();
 </script>
 
-<!-- Кнопка скрыть/показать логи + хоткей Alt+V -->
 <script>
 (function () {
   const section = document.getElementById('auditSection');

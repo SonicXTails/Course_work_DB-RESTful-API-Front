@@ -195,6 +195,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 BACKUPS_DIR = os.path.join(BASE_DIR, "backups")
 os.makedirs(BACKUPS_DIR, exist_ok=True)
 
-# Необязательные параметры
 BACKUPS_DIR = str(BASE_DIR / "backups")
 PG_DUMP_PATH = r"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe" 

@@ -1,0 +1,121 @@
+{
+  "info": {
+    "name": "API Car Dealer",
+    "_postman_id": "b0b0-collection-id-demo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth: Obtain Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api-token-auth/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api-token-auth",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{username}}\",\"password\":\"{{password}}\"}"
+        }
+      }
+    },
+    {
+      "name": "Cars: List",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Token {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/cars/?ordering=-price",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "cars",
+            ""
+          ],
+          "query": [
+            {
+              "key": "ordering",
+              "value": "-price"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Cars: Create (admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Token {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/cars/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "cars",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"model_id\":1,\"price\":123456,\"year\":2022,\"vin\":\"POSTMANVIN\"}"
+        }
+      }
+    },
+    {
+      "name": "Audit Logs (admin)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Token {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/audit-logs/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "audit-logs",
+            ""
+          ]
+        }
+      }
+    }
+  ]
+}
