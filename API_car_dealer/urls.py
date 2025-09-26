@@ -35,4 +35,12 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    from django.http import JsonResponse
+    from django.urls import get_resolver
+
+    def list_urls(_):
+        urls = []
+        for p in get_resolver().url_patterns:
+            urls.append(str(p.pattern))
+        return JsonResponse({"urlpatterns": urls})
+    urlpatterns += [path("__urls__", list_urls)]

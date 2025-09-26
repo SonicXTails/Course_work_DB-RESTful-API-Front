@@ -1,3 +1,4 @@
+import os
 import requests
 from requests.adapters import HTTPAdapter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -23,9 +24,11 @@ from .forms import ProfileForm
 # =========================
 # API endpoints
 # =========================
-API_URL        = "http://localhost:8000/api/v1/"
+API_BASE = getattr(settings, "API_BASE_URL", os.getenv("API_BASE_URL", "http://localhost:8000"))
+API_URL  = f"{API_BASE}/api/v1/"
+
 REGISTER_URL   = f"{API_URL}auth/register/"
-TOKEN_URL      = "http://localhost:8000/api-token-auth/"
+TOKEN_URL      = f"{API_BASE}/api-token-auth/"
 ME_URL         = f"{API_URL}users/me/"
 MAKES_URL      = f"{API_URL}makes/"
 MODELS_URL     = f"{API_URL}models/"
@@ -35,7 +38,6 @@ USER_ROLES_URL = f"{API_URL}admin/user_roles/"
 ROLES_URL      = f"{API_URL}admin/roles/"
 ORDERS_URL     = f"{API_URL}orders/"
 BOOTSTRAP_URL  = f"{API_URL}bootstrap/"
-
 # =========================
 # HTTP session (keep-alive)
 # =========================

@@ -1,0 +1,13 @@
+Django==4.2.*
+djangorestframework==3.14.*
+drf-yasg==1.21.7
+django-cors-headers>=4
+psycopg2-binary>=2.9
+gunicorn>=21
+PyYAML>=6.0
+python-dotenv>=1
+setuptools>=68
+wheel>=0.42
+Pillow>=10.4,<12
+requests>=2.32
+whitenoise>=6

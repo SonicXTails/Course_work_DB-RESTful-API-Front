@@ -21,9 +21,8 @@ load_dotenv(BASE_DIR / ".env")
 def env_bool(name: str, default: str = "0") -> bool:
     return str(os.getenv(name, default)).strip().lower() in ("1", "true", "yes", "y")
 
-def env_list(name: str, default: str = "") -> list[str]:
-    raw = os.getenv(name, default)
-    return [x.strip() for x in raw.split(",") if x.strip()]
+def env_list(name, default=""):
+    return [x.strip() for x in os.getenv(name, default).split(",") if x.strip()]
 
 AUTH_USER_MODEL = 'core.User'
 
@@ -31,12 +30,8 @@ AUTH_USER_MODEL = 'core.User'
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
-if not SECRET_KEY:
-    raise RuntimeError("DJANGO_SECRET_KEY is not set in .env")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool("DEBUG", "0")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY") or os.getenv("SECRET_KEY", "dev-unsafe")
+DEBUG = os.getenv("DEBUG", "0").lower() in ("1", "true", "yes")
 
 SESSION_COOKIE_NAME = "ui_sessionid"
 CSRF_COOKIE_NAME    = "ui_csrftoken"
@@ -81,15 +76,12 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.CurrentUserMiddleware",
 ]
+WHITENOISE_USE_FINDERS = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["*", "127.0.0.1", "localhost"]
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8000", "http://localhost:8000",
-    "http://127.0.0.1:8400", "http://localhost:8400",
-]
-
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "")
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
@@ -108,10 +100,11 @@ SWAGGER_SETTINGS = {
 
 ROOT_URLCONF = 'API_car_dealer.urls'
 
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        "DIRS": [ BASE_DIR / "templates" ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -125,6 +118,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'API_car_dealer.wsgi.application'
 
+LOGIN_URL = "/auth/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -132,10 +128,10 @@ WSGI_APPLICATION = 'API_car_dealer.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", "cars"),
-        "USER": os.getenv("DB_USER", "caruser"),
+        "NAME": os.getenv("DB_NAME", "DB_Car_dash"),
+        "USER": os.getenv("DB_USER", "postgres"),
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
         "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
     }
@@ -176,10 +172,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+STATICFILES_DIRS = [
+    BASE_DIR.parent / "car_frontend" / "dashboard" / "static",
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -197,3 +198,6 @@ os.makedirs(BACKUPS_DIR, exist_ok=True)
 
 BACKUPS_DIR = str(BASE_DIR / "backups")
 PG_DUMP_PATH = r"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe" 
+
+STATIC_ROOT = os.getenv("STATIC_ROOT", BASE_DIR / "staticfiles")
+MEDIA_ROOT  = os.getenv("MEDIA_ROOT",  BASE_DIR / "media")

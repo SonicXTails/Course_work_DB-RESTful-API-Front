@@ -9,6 +9,7 @@ from .views import (
     AuditLogViewSet, AuditLogAdminViewSet, RegisterViewSet,
 )
 from .viewsets import BackupViewSet
+from car_frontend.dashboard import views as front
 
 root = DefaultRouter()
 root.register(r'users', UserViewSet, basename='user')
@@ -43,4 +44,5 @@ urlpatterns = [
     path('admin/', include(admin.urls)),
     path('auth/', include(auth.urls)),
     path('bootstrap/', bootstrap, name='bootstrap'), 
+    path("", front.users_dashboard, name="home"),
 ]

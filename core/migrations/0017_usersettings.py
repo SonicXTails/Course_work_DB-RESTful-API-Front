@@ -27,7 +27,12 @@ class Migration(migrations.Migration):
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='settings', to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'constraints': [models.CheckConstraint(condition=models.Q(('page_size__gte', 5), ('page_size__lte', 200)), name='usersettings_page_size_range')],
+                'constraints': [
+                    models.CheckConstraint(
+                        check=(models.Q(page_size__gte=5) & models.Q(page_size__lte=200)),
+                        name='usersettings_page_size_range',
+                    ),
+                ],
             },
         ),
     ]
