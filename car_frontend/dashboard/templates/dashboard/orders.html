@@ -1,15 +1,113 @@
-{% for order in orders %}
-  <tr>
-    <td>#{{ order.id }}</td>
-    <td>{{ order.car.vin }}</td>
-    <td>{{ order.status }}</td>
-    <td>
-      {% if order.status == "reserved" %}
-        <form method="post" action="{% url 'order_confirm' order.id %}" class="d-inline">
-          {% csrf_token %}
-          <button class="btn btn-success btn-sm">Подтвердить</button>
-        </form>
-      {% endif %}
-    </td>
-  </tr>
-{% endfor %}
+{% extends "dashboard/base.html" %}
+{% block title %}Мои заказы{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 1100px;">
+  <h2 class="mb-3">Мои заказы</h2>
+
+  {# === ФИЛЬТРЫ СТАТУСОВ === #}
+  <form method="get" class="card border-0 shadow-sm mb-3" style="background:#1f2a36;color:#e9ecef;">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+      <div class="me-2 fw-semibold">Показать статусы:</div>
+
+      {% for val,label in status_choices %}
+        <label class="form-check me-2">
+          <input class="form-check-input" type="checkbox" name="status" value="{{ val }}"
+                 {% if selected_statuses and val in selected_statuses %}checked{% endif %}>
+          <span class="form-check-label">{{ label }}</span>
+        </label>
+      {% endfor %}
+
+      <div class="ms-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">Применить</button>
+        <a href="{% url 'orders' %}" class="btn btn-outline-secondary btn-sm">Сбросить</a>
+      </div>
+    </div>
+    <div class="card-footer small text-secondary" style="background:#243141;border-top:1px solid #2f3c4e;">
+      Если ничего не выбрано — отменённые заказы скрываются автоматически.
+    </div>
+  </form>
+
+  {% if not orders %}
+    <div class="alert alert-secondary">Ничего не найдено под выбранные фильтры.</div>
+  {% else %}
+    <div class="table-responsive">
+      <table class="table table-dark table-striped align-middle">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Автомобиль</th>
+            <th class="text-end">Цена</th>
+            <th>Статус</th>
+            <th class="text-end">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in orders %}
+            {% with s=o.status|default:''|lower %}
+            <tr>
+              <td>#{{ o.id }}</td>
+              <td class="text-nowrap">
+                {{ o.car_title }}
+                {% if o.car_status_ru %}
+                  <span class="badge bg-secondary ms-2">{{ o.car_status_ru }}</span>
+                {% endif %}
+              </td>
+              <td class="text-end">{{ o.car_price_fmt }}</td>
+              <td>
+                {% if s == 'confirmed' or s == 'completed' %}
+                  <span class="badge bg-success">{{ o.status_ru }}</span>
+                {% elif s == 'pending' or s == 'reserved' %}
+                  <span class="badge bg-warning text-dark">{{ o.status_ru }}</span>
+                {% elif s == 'cancelled' %}
+                  <span class="badge bg-danger">{{ o.status_ru }}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ o.status_ru }}</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if o.car_vin %}
+                  <a href="{% url 'car_detail' o.car_vin %}" class="btn btn-outline-light btn-sm">Подробнее →</a>
+                {% else %}
+                  <button class="btn btn-outline-secondary btn-sm" disabled>Нет ссылки</button>
+                {% endif %}
+
+                {# Отмена покупателем — только если заказ активный #}
+                {% if s == 'pending' or s == 'reserved' %}
+                  <form id="cancelForm_{{ o.id }}" method="post"
+                        action="{% url 'order_buyer_cancel' o.id %}" class="d-inline ms-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="reason" id="reason_{{ o.id }}" value="">
+                    <button type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            onclick="cancelOrder({{ o.id }})">
+                      Отменить
+                    </button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  function cancelOrder(id) {
+    try {
+      const reason = prompt('Причина отмены (необязательно):', '');
+      const input = document.getElementById('reason_' + id);
+      if (input) input.value = reason || '';
+      if (confirm('Отменить заказ #' + id + '?')) {
+        const form = document.getElementById('cancelForm_' + id);
+        if (form) form.submit();
+      }
+    } catch (e) {
+      alert('Не удалось отправить отмену: ' + e);
+    }
+  }
+</script>
+{% endblock %}

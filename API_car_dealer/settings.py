@@ -175,9 +175,6 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
 STATICFILES_DIRS = [
     BASE_DIR.parent / "car_frontend" / "dashboard" / "static",
 ]
@@ -198,6 +195,3 @@ os.makedirs(BACKUPS_DIR, exist_ok=True)
 
 BACKUPS_DIR = str(BASE_DIR / "backups")
 PG_DUMP_PATH = r"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe" 
-
-STATIC_ROOT = os.getenv("STATIC_ROOT", BASE_DIR / "staticfiles")
-MEDIA_ROOT  = os.getenv("MEDIA_ROOT",  BASE_DIR / "media")

@@ -1,63 +1,145 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-bs-theme="{{ THEME|default:'dark' }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Мой сайт{% endblock %}</title>
 
-  <link rel="icon" type="image/png" sizes="16x16" href="./img/favicon.png"/>
-  <!-- Bootstrap 5.3.3 CSS -->
+  <link rel="icon" type="image/svg+xml" href="{% static 'css/logo.svg' %}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon.png' %}"/>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         rel="stylesheet"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous">
 
-  <!-- hotkeys: прелоад -->
+  <link rel="stylesheet" href="{% static 'css/brand.css' %}">
+  <link rel="stylesheet" href="{% static 'css/brand-theme-classic.css' %}">
+
   <link rel="preload" href="{% static 'js/hotkeys.js' %}" as="script">
 
   <style>
     html, body { height: 100%; }
-    body {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    main { flex: 1 0 auto; }   /* контент растягивается */
-    footer { margin-top: auto; }/* футер уезжает вниз */
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1 0 auto; }
+    footer { margin-top: auto; }
   </style>
 
   {% if request.user.is_authenticated %}
     <meta name="is-staff" content="{% if request.user.is_staff %}1{% else %}0{% endif %}">
+    <meta name="is-super" content="{% if request.user.is_superuser %}1{% else %}0{% endif %}">
+    <meta name="user-groups" content="{% for g in request.user.groups.all %}{{ g.name|lower }}{% if not forloop.last %},{% endif %}{% endfor %}">
   {% endif %}
   {% if request.session.api_token %}
     <meta name="api-token" content="Token {{ request.session.api_token }}">
   {% endif %}
 </head>
 <body>
-  <!-- НАВБАР -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="{% url 'users_dashboard' %}">МойСайт</a>
+
+      {# === БРЕНД: не кликабелен для админа/аналитика === #}
+      {% if request.session.api_token %}
+        {% if request.session.is_admin or request.session.is_staff or request.session.is_super or request.user.is_staff or request.user.is_superuser %}
+          <span class="navbar-brand fw-bold d-flex align-items-center gap-2">
+            <img src="{% static 'css/logo.svg' %}" alt="Logo" width="28" height="28">
+            <span>HaifAvto</span>
+          </span>
+        {% else %}
+          {% with roles=request.session.roles|default_if_none:'' %}
+            {% if roles %}
+              {% if 'Admin' in roles or 'Administrator' in roles or 'Администратор' in roles or 'Analyst' in roles or 'Analitic' in roles or 'Аналитик' in roles %}
+                <span class="navbar-brand fw-bold d-flex align-items-center gap-2">
+                  <img src="{% static 'css/logo.svg' %}" alt="Logo" width="28" height="28">
+                  <span>HaifAvto</span>
+                </span>
+              {% else %}
+                <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'users_dashboard' %}">
+                  <img src="{% static 'css/logo.svg' %}" alt="Logo" width="28" height="28">
+                  <span>HaifAvto</span>
+                </a>
+              {% endif %}
+            {% else %}
+              <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'users_dashboard' %}">
+                <img src="{% static 'css/logo.svg' %}" alt="Logo" width="28" height="28">
+                <span>HaifAvto</span>
+              </a>
+            {% endif %}
+          {% endwith %}
+        {% endif %}
+      {% else %}
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'users_dashboard' %}">
+          <img src="{% static 'css/logo.svg' %}" alt="Logo" width="28" height="28">
+          <span>HaifAvto</span>
+        </a>
+      {% endif %}
+
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
               data-bs-target="#navbarNav" aria-controls="navbarNav"
               aria-expanded="false" aria-label="Переключить меню">
         <span class="navbar-toggler-icon"></span>
       </button>
+
       <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-auto">
+        <ul class="navbar-nav ms-auto align-items-lg-center">
+
+          {# === Меню справа: для админа/аналитика — только «Выйти» === #}
           {% if request.session.api_token %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}">Личный кабинет 💼</a></li>
-            <li class="nav-item"><a class="nav-link text-danger" href="{% url 'logout' %}">Выйти ❌</a></li>
+            {% if request.session.is_admin or request.session.is_staff or request.session.is_super or request.user.is_staff or request.user.is_superuser %}
+              <li class="nav-item">
+                <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Выйти ❌</a>
+              </li>
+            {% else %}
+              {% with roles=request.session.roles|default_if_none:'' %}
+                {% if roles %}
+                  {% if 'Admin' in roles or 'Administrator' in roles or 'Администратор' in roles or 'Analyst' in roles or 'Analitic' in roles or 'Аналитик' in roles %}
+                    <li class="nav-item">
+                      <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Выйти ❌</a>
+                    </li>
+                  {% else %}
+                    <li class="nav-item me-2">
+                      <button id="themeToggle" class="btn btn-outline-light btn-sm" type="button">Тема</button>
+                    </li>
+                    <li class="nav-item me-2">
+                      {% if not request.session.is_admin and not request.session.is_analitic %}
+                        <a class="nav-link" href="{% url 'orders' %}">Мои заказы</a>
+                      {% endif %}
+                    </li>
+                    <li class="nav-item me-2">
+                      <a href="{% url 'profile' %}" class="btn btn-outline-light btn-sm">Личный кабинет 💼</a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Выйти ❌</a>
+                    </li>
+                  {% endif %}
+                {% else %}
+                  <li class="nav-item me-2">
+                    <button id="themeToggle" class="btn btn-outline-light btn-sm" type="button">Тема</button>
+                  </li>
+                  <li class="nav-item me-2">
+                    <a id="myOrdersLink" href="{% url 'orders' %}" class="btn btn-outline-light btn-sm">Мои заказы</a>
+                  </li>
+                  <li class="nav-item me-2">
+                    <a href="{% url 'profile' %}" class="btn btn-outline-light btn-sm">Личный кабинет 💼</a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Выйти ❌</a>
+                  </li>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
           {% else %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'auth' %}">Войти / Регистрация</a></li>
+            <li class="nav-item">
+              <a href="{% url 'auth' %}" class="btn btn-outline-light btn-sm">Войти / Регистрация</a>
+            </li>
           {% endif %}
+
         </ul>
       </div>
     </div>
   </nav>
 
-  <!-- Сообщения Django -->
   {% if messages %}
     <div class="container mt-3" style="max-width:1200px;">
       {% for message in messages %}
@@ -66,24 +148,247 @@
     </div>
   {% endif %}
 
-  <!-- КОНТЕНТ -->
   <main class="container my-4">
     {% block content %}{% endblock %}
   </main>
 
-  <!-- ПОДВАЛ (прижат к низу) -->
-  <footer class="bg-dark text-light text-center py-3">
-    <div class="container">
-      <p class="mb-0">&copy; 2025 МойСайт. Все права защищены.</p>
+<footer class="footer bg-dark text-light pt-5 pb-4 border-top border-secondary mt-5">
+  <div class="container">
+
+    <div class="row g-4">
+      <div class="col-12 col-md-4">
+
+        {# === Логотип в футере: не ссылка для админа/аналитика === #}
+        {% if request.session.api_token %}
+          {% if request.session.is_admin or request.session.is_staff or request.session.is_super or request.user.is_staff or request.user.is_superuser %}
+            <span class="d-inline-flex align-items-center mb-2 text-decoration-none text-light">
+              <img src="{% static 'css/logo.svg' %}" width="32" height="32" class="me-2" alt="Логотип">
+              <strong>HaifAvto</strong>
+            </span>
+          {% else %}
+            {% with roles=request.session.roles|default_if_none:'' %}
+              {% if roles %}
+                {% if 'Admin' in roles or 'Administrator' in roles or 'Администратор' in roles or 'Analyst' in roles or 'Analitic' in roles or 'Аналитик' in roles %}
+                  <span class="d-inline-flex align-items-center mb-2 text-decoration-none text-light">
+                    <img src="{% static 'css/logo.svg' %}" width="32" height="32" class="me-2" alt="Логотип">
+                    <strong>HaifAvto</strong>
+                  </span>
+                {% else %}
+                  <a class="d-inline-flex align-items-center mb-2 text-decoration-none text-light" href="{% url 'users_dashboard' %}">
+                    <img src="{% static 'css/logo.svg' %}" width="32" height="32" class="me-2" alt="Логотип">
+                    <strong>HaifAvto</strong>
+                  </a>
+                {% endif %}
+              {% else %}
+                <a class="d-inline-flex align-items-center mb-2 text-decoration-none text-light" href="{% url 'users_dashboard' %}">
+                  <img src="{% static 'css/logo.svg' %}" width="32" height="32" class="me-2" alt="Логотип">
+                  <strong>HaifAvto</strong>
+                </a>
+              {% endif %}
+            {% endwith %}
+          {% endif %}
+        {% else %}
+          <a class="d-inline-flex align-items-center mb-2 text-decoration-none text-light" href="{% url 'users_dashboard' %}">
+            <img src="{% static 'css/logo.svg' %}" width="32" height="32" class="me-2" alt="Логотип">
+            <strong>HaifAvto</strong>
+          </a>
+        {% endif %}
+
+        <p class="text-secondary small mb-3">
+          Платформа продажи и аналитики автомобилей. Объявления, бронирование, безопасная оплата.
+        </p>
+
+        <ul class="list-unstyled d-flex gap-2 mb-0">
+          <li>
+            <a class="social-link" href="https://t.me/" target="_blank" rel="noopener" aria-label="Telegram">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.04 15.23 8.9 19.1c.32 0 .46-.14.62-.31l1.49-1.43 3.09 2.27c.57.31.98.15 1.13-.53л2.05-9.63c.18-.82-.31-1.14-.86-.94L4.6 11.06c-.82.32-.8.78-.14.99l3.61 1.13 8.37-5.29c.39-.24.74-.11.45.15"/></svg>
+            </a>
+          </li>
+          <li>
+            <a class="social-link" href="https://vk.com/" target="_blank" rel="noopener" aria-label="VK">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7c.11 4.3 2.27 8.06 6.06 10.98h2.12v-3.85c1.02.1 1.8.87 2.86 1.96 1.12 1.17 1.96 1.89 3.2 1.89h2.2v-2.46c-1.46-.15-2.27-1.2-3.2-2.3-.63-.74-.22-1.08.51-2.07.72-.97 1.27-2 1.27-2.96 0-1.23-.85-2.19-2.7-2.19-1.04 0-1.86.24-2.42.76-.56.51-.74 1.19-.74 2.01v.78H10.7c.03-2.04.06-3.97.06-3.97H8.7C6.24 4.58 2.89 5.45 3 7z"/></svg>
+            </a>
+          </li>
+          <li>
+            <a class="social-link" href="https://youtube.com" target="_blank" rel="noopener" aria-label="YouTube">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 7.5s-.23-1.66-.95-2.39c-.91-.95-1.93-.96-2.4-1C16.9 3.75 12 3.75 12 3.75h0s-4.9 0-8.15.36c-.47.04-1.49.05-2.4 1C.73 5.84.5 7.5.5 7.5S.25 9.43.25 11.35v1.3c0 1.93.25 3.85.25 3.85s.23 1.66.95 2.39c.91.95 2.11.92 2.64 1.02 1.92.18 8 .36 8 .36s4.9 0 8.15-.36c.47-.04 1.49-.05 2.4-1 .72-.73.95-2.39.95-2.39s.25-1.93.25-3.85v-1.3c0-1.92-.25-3.85-.25-3.85zM9.75 14.9V8.8л6.05 3.06-6.05 3.04z"/></svg>
+            </a>
+          </li>
+          <li>
+            <a class="social-link" href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7.3A4.7 4.7 0 1 0 12 16.7 4.7 4.7 0 0 0 12 7.3zm0-5.3c2.6 0 2.9 0 3.9.06 1 .06 1.7.22 2.3.47.6.23 1.2.56 1.7 1.06.5.5.83 1.1 1.06 1.7.25.6.4 1.3.47 2.3.06 1 .06 1.3.06 3.9s0 2.9-.06 3.9c-.06 1-.22 1.7-.47 2.3-.23.6-.56 1.2-1.06 1.7-.5.5-1.1.83-1.7 1.06-.6.25-1.3.4-2.3.47-1 .06-1.3.06-3.9.06s-2.9 0-3.9-.06c-1-.06-1.7-.22-2.3-.47-.6-.23-1.2-.56-1.7-1.06-.5-.5-.83-1.1-1.06-1.7-.25-.6-.4-1.3-.47-2.3C2 14.9 2 14.6 2 12s0-2.9.06-3.9c.06-1 .22-1.7.47-2.3.23-.6.56-1.2 1.06-1.7.5-.5 1.1-.83 1.7-1.06.6-.25 1.3-.4 2.3-.47C9.1 2 9.4 2 12 2zM12 8.9A3.1 3.1 0 1 1 8.9 12 3.1 3.1 0 0 1 12 8.9zm5.1-2.3a.9.9 0 1 0 .9.9.9.9 0 0 0-.9-.9z"/></svg>
+            </a>
+          </li>
+          <li>
+            <a class="social-link" href="https://github.com/SonicXTails/Course_work_DB-RESTful-API-Front/commits/main/" target="_blank" rel="noopener" aria-label="GitHub">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.09 3.29 9.4 7.86 10.92.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.53-1.36-1.3-1.72-1.3-1.72-1.06-.73.08-.72.08-.72 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.74 1.26 3.4.96.1-.76.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.2-3.09-.12-.29-.52-1.45.11-3.02 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0C17.6 4.08 18.57 4.4 18.57 4.4c.63 1.57.24 2.73.12 3.02.75.8 1.2 1.83 1.2 3.09 0 4.42-2.7 5.39-5.26 5.68.41.35.78 1.04.78 2.1v3.11c0 .3.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="col-6 col-md-2">
+        <h6 class="text-uppercase text-secondary small mb-3">Компания</h6>
+        <ul class="list-unstyled mb-0">
+          <li><a class="footer-link" href="#">О нас</a></li>
+          <li><a class="footer-link" href="#">Новости</a></li>
+          <li><a class="footer-link" href="#">Вакансии</a></li>
+          <li><a class="footer-link" href="#">Партнёрам</a></li>
+        </ul>
+      </div>
+
+      <div class="col-6 col-md-2">
+        <h6 class="text-uppercase text-secondary small mb-3">Покупателям</h6>
+        <ul class="list-unstyled mb-0">
+          <li><a class="footer-link" href="#">Каталог авто</a></li>
+          <li><a class="footer-link" href="#">Как купить</a></li>
+          <li><a class="footer-link" href="#">Оплата и возврат</a></li>
+          <li><a class="footer-link" href="#">FAQ</a></li>
+        </ul>
+      </div>
+
+      <div class="col-12 col-md-4">
+        <h6 class="text-uppercase text-secondary small mb-3">Контакты</h6>
+        <ul class="list-unstyled small mb-3">
+          <li class="mb-1"><span class="me-2">📍</span> г. Москва, ул. Примерная, 7</li>
+          <li class="mb-1"><span class="me-2">📞</span> <a class="footer-link" href="tel:+74951234567">+7 (495) 123-45-67</a></li>
+          <li class="mb-1"><span class="me-2">✉️</span> <a class="footer-link" href="mailto:info@haifavto.ru">info@haifavto.ru</a></li>
+          <li class="text-secondary">Пн–Пт 10:00–19:00, Сб–Вс 11:00–17:00</li>
+        </ul>
+
+        <form class="mt-2" action="#" method="post" novalidate>
+          <label class="form-label small text-secondary">Подписка на новости</label>
+          <div class="input-group input-group-sm">
+            <input type="email" class="form-control bg-dark text-light border-secondary"
+                   placeholder="Ваш email" aria-label="Email">
+            <button class="btn btn-outline-light" type="submit">Подписаться</button>
+          </div>
+          <div class="form-text text-secondary">Раз в месяц, без спама. Можно отписаться в любой момент.</div>
+        </form>
+      </div>
     </div>
-  </footer>
 
-  <!-- Bootstrap bundle -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-          integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-          crossorigin="anonymous"></script>
+    <hr class="border-secondary my-4">
 
-  <!-- hotkeys -->
-  <script src="{% static 'js/hotkeys.js' %}"></script>
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-2 small">
+      <div>&copy; <span id="footerYear"></span> HaifAvto. Все права защищены.</div>
+      <ul class="nav gap-2">
+        <li class="nav-item"><a class="nav-link p-0 footer-link" href="#">Пользовательское соглашение</a></li>
+        <li class="nav-item"><a class="nav-link p-0 footer-link" href="#">Политика конфиденциальности</a></li>
+        <li class="nav-item"><a class="nav-link p-0 footer-link" href="#">Файлы cookie</a></li>
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        <span class="pay-badge">VISA</span>
+        <span class="pay-badge">Mastercard</span>
+        <span class="pay-badge">МИР</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){ var el=document.getElementById('footerYear'); if(el){ el.textContent=new Date().getFullYear(); }})();
+</script>
+
+<style>
+  .footer a.footer-link{ color: rgba(255,255,255,.85); text-decoration: none; }
+  .footer a.footer-link:hover{ color: #fff; text-decoration: underline; }
+  .footer h6{ letter-spacing:.08em; }
+  .footer .social-link{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:36px; height:36px; border-radius:.5rem;
+    border:1px solid rgba(255,255,255,.25); color:#fff; transition:.15s ease;
+  }
+  .footer .social-link:hover{ background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.5); transform:translateY(-1px); }
+  .footer .social-link svg{ width:18px; height:18px; fill:currentColor; }
+  .footer .pay-badge{ display:inline-block; padding:.25rem .5rem; border-radius:.35rem; border:1px solid rgba(255,255,255,.25); color:#fff; font-weight:600; font-size:.75rem; background:rgba(255,255,255,.06); }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+
+<script>
+  (function(){
+    const btn = document.getElementById('themeToggle');
+    if (!btn) return;
+
+    const API_BASE = "http://127.0.0.1:8000/api/v1";
+    const TOKEN = "{{ request.session.api_token|default:'' }}";
+
+    btn.addEventListener('click', async function () {
+      const current = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+      const next = (current === 'light') ? 'dark' : 'light';
+
+      try {
+        if (TOKEN) {
+          const r = await fetch(API_BASE + "/users/me/theme/", {
+            method: "PATCH",
+            headers: {
+              "Authorization": "Token " + TOKEN,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ theme: next })
+          });
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(data.detail || ("HTTP " + r.status));
+        }
+        document.documentElement.setAttribute('data-bs-theme', next);
+        btn.blur();
+      } catch (e) {
+        alert("Не удалось сохранить тему: " + (e?.message || e));
+      }
+    });
+  })();
+</script>
+
+<script>
+  (function(){
+    function getMeta(name){
+      var el = document.querySelector('meta[name="'+name+'"]');
+      return el ? el.getAttribute('content') : null;
+    }
+    var isStaff = getMeta('is-staff') === '1';
+    var isSuper = getMeta('is-super') === '1';
+    var groupsCsv = (getMeta('user-groups') || '').toLowerCase();
+    var groups = groupsCsv ? groupsCsv.split(',').map(function(s){return s.trim();}) : [];
+
+    var dict = {}; groups.forEach(function(g){ if(g) dict[g]=true; });
+
+    var isAdminOrAnalyst =
+      isStaff || isSuper ||
+      dict['admin'] || dict['administrator'] || dict['администратор'] ||
+      dict['analyst'] || dict['analitic'] || dict['аналитик'];
+
+    if (!isAdminOrAnalyst) return;
+
+    var myOrders = document.getElementById('myOrdersLink');
+    if (myOrders) {
+      myOrders.classList.add('disabled','opacity-50','pointer-events-none');
+      myOrders.setAttribute('aria-disabled','true');
+      myOrders.setAttribute('tabindex','-1');
+      myOrders.setAttribute('href', '#');
+      myOrders.addEventListener('click', function(e){ e.preventDefault(); }, { passive:false });
+    }
+
+    document.querySelectorAll('.reserve-btn').forEach(function(btn){
+      btn.classList.add('disabled','opacity-50');
+      btn.setAttribute('aria-disabled','true');
+      if (btn.tagName === 'A') { btn.setAttribute('href', '#'); }
+      else { btn.setAttribute('disabled','disabled'); }
+      btn.addEventListener('click', function(e){ e.preventDefault(); }, { passive:false });
+    });
+
+    var orderBtn = document.getElementById('orderBtn');
+    if (orderBtn) {
+      orderBtn.classList.add('disabled','opacity-50');
+      orderBtn.setAttribute('aria-disabled','true');
+      orderBtn.setAttribute('disabled','disabled');
+      orderBtn.addEventListener('click', function(e){ e.preventDefault(); }, { passive:false });
+    }
+  })();
+</script>
+
+<script src="{% static 'js/hotkeys.js' %}"></script>
 </body>
 </html>

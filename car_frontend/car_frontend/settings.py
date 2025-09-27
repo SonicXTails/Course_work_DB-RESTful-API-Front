@@ -64,6 +64,9 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.static',  # (не обяз., но полезно)
+                'django.template.context_processors.media',   # нужно!
+                "dashboard.context_processors.role_flags",
             ],
         },
     },
@@ -131,3 +134,7 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+MEDIA_URL = "http://127.0.0.1:8000/media/"
+
+LOGIN_URL = '/auth/'

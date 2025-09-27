@@ -30,8 +30,14 @@
           <button id="orderBtn"
                   class="btn btn-primary btn-sm"
                   data-vin="{{ car.VIN }}"
-                  {% if car.status != 'available' or me and me.id == car.seller %}disabled{% endif %}>
-            {% if me and me.id == car.seller %}Нельзя купить своё авто{% else %}Оформить заказ{% endif %}
+                  {% if car.status != 'available' or me and me.id == car.seller or request.session.is_admin_or_analitic %}disabled{% endif %}>
+            {% if request.session.is_admin_or_analitic %}
+              Резерв недоступен
+            {% elif me and me.id == car.seller %}
+              Нельзя купить своё авто
+            {% else %}
+              Оформить заказ
+            {% endif %}
           </button>
 
           <button id="payBtn" class="btn btn-success btn-sm" disabled>
@@ -263,6 +269,7 @@
   const API   = "http://127.0.0.1:8000/api/v1";
   const TOKEN = "{{ request.session.api_token|default:'' }}";
   const HJSON = { "Authorization": "Token " + TOKEN, "Content-Type": "application/json" };
+  const IS_ADMIN_OR_ANALITIC = {{ request.session.is_admin_or_analitic|yesno:"true,false" }};
 
   const vin          = "{{ car.VIN }}";
   const orderBtn     = document.getElementById('orderBtn');
@@ -604,6 +611,10 @@
     hideAlert();
     if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оформить заказ.'); return; }
     if (orderBtn.disabled) return;
+    if (IS_ADMIN_OR_ANALITIC) {
+      showAlert('warning', 'Резерв недоступен для администратора и аналитика.');
+      return;
+    }
 
     orderBtn.disabled = true;
     const prevText = orderBtn.textContent;
@@ -710,5 +721,6 @@
 
 })();
 </script>
+
 
 {% endblock %}
