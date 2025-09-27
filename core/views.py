@@ -136,8 +136,37 @@ class UserViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=["get", "patch"], url_path="me_theme", permission_classes=[IsAuthenticated])
+    def me_theme(self, request):
+        """
+        GET   /users/me_theme/      -> {"theme": "dark"|"light"}
+        PATCH /users/me_theme/      -> {"theme": "dark"|"light"}
+        """
+        from .models import UserSettings
+        user = request.user
 
+        settings_obj, _ = UserSettings.objects.get_or_create(
+            user=user,
+            defaults={"theme": UserSettings.Theme.DARK}
+        )
 
+        if request.method.lower() == "get":
+            theme = settings_obj.theme
+            if theme not in ("dark", "light"):
+                theme = "dark"
+            return Response({"theme": theme}, status=status.HTTP_200_OK)
+
+        theme = (request.data.get("theme") or "").lower()
+        if theme not in ("dark", "light"):
+            return Response(
+                {"detail": "Допустимо только 'dark' или 'light'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        settings_obj.theme = theme
+        settings_obj.save(update_fields=["theme"])
+        return Response({"theme": settings_obj.theme}, status=status.HTTP_200_OK)
 # ---------------------------
 # Роли и назначение ролей
 # ---------------------------
@@ -147,6 +176,40 @@ class UserViewSet(ModelViewSet):
 @method_decorator(name='update',         decorator=swagger_auto_schema(tags=['Admin / Roles']))
 @method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Admin / Roles']))
 @method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Admin / Roles']))
+
+class RoleViewSet(ModelViewSet):
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+    permission_classes = [IsAdminOrReadOnlyAuthenticated]
+    
+    @action(detail=False, methods=["get", "patch"], url_path="me/theme", permission_classes=[IsAuthenticated])
+    def me_theme(self, request):
+        """Прочитать/изменить тему текущего пользователя.
+
+        GET   /users/me/theme/   -> {"theme": "dark"|"light"}
+        PATCH /users/me/theme/   -> {"theme": "dark"|"light"}
+        """
+        from .models import UserSettings
+        user = request.user
+
+        settings_obj, _ = UserSettings.objects.get_or_create(user=user, defaults={"theme": UserSettings.Theme.DARK})
+
+        if request.method.lower() == "get":
+            # Если в БД вдруг 'system' — возвращаем 'dark' как дефолт.
+            theme = settings_obj.theme
+            if theme not in ("dark", "light"):
+                theme = "dark"
+            return Response({"theme": theme}, status=status.HTTP_200_OK)
+
+        # PATCH
+        theme = (request.data.get("theme") or "").lower()
+        if theme not in ("dark", "light"):
+            return Response({"detail": "Некорректное значение: допустимо только 'dark' или 'light'."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        settings_obj.theme = theme
+        settings_obj.save(update_fields=["theme"])
+        return Response({"theme": settings_obj.theme}, status=status.HTTP_200_OK)
+
 class RoleViewSet(ModelViewSet):
     queryset = Role.objects.all()
     serializer_class = RoleSerializer

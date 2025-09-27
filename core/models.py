@@ -213,7 +213,7 @@ class UserSettings(models.Model):
         US = "1,234.56", "1,234.56"
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="settings")
-    theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.SYSTEM)
+    theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.DARK)
     date_format = models.CharField(max_length=12, choices=DateFormat.choices, default=DateFormat.RU)
     number_format = models.CharField(max_length=12, choices=NumberFormat.choices, default=NumberFormat.EU)
     page_size = models.PositiveSmallIntegerField(default=20, validators=[MinValueValidator(5), MaxValueValidator(200)])

@@ -67,6 +67,10 @@ TEMPLATES = [
                 'django.template.context_processors.static',  # (не обяз., но полезно)
                 'django.template.context_processors.media',   # нужно!
                 "dashboard.context_processors.role_flags",
+<<<<<<< HEAD
+=======
+                "dashboard.context_processors.theme",
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
             ],
         },
     },

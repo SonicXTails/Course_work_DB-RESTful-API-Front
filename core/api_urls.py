@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 from .viewsets import BackupViewSet
 from .views import (
@@ -10,6 +10,9 @@ from .views import (
 )
 from .viewsets import BackupViewSet
 from car_frontend.dashboard import views as front
+
+
+users_me_theme = UserViewSet.as_view({"get": "me_theme", "patch": "me_theme"})
 
 root = DefaultRouter()
 root.register(r'users', UserViewSet, basename='user')
@@ -45,4 +48,5 @@ urlpatterns = [
     path('auth/', include(auth.urls)),
     path('bootstrap/', bootstrap, name='bootstrap'), 
     path("", front.users_dashboard, name="home"),
+    re_path(r'^users/me/theme/$', users_me_theme, name='users-me-theme'),
 ]

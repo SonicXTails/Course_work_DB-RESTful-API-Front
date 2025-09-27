@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 :root{
+=======
+/* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (light по умолчанию) ========================== */
+:root,
+:root[data-bs-theme="light"]{
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --brand-name: "HunterAuto";
   --color-primary: #0057B8;
   --color-primary-contrast: #FFFFFF;
@@ -9,6 +15,10 @@
   --color-danger: #EF4444;
   --color-info: #3B82F6;
 
+<<<<<<< HEAD
+=======
+  /* Светлая тема */
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --bg-base: #FFFFFF;
   --bg-elevated: #F7F9FC;
   --bg-inverted: #0B0F1A;
@@ -16,7 +26,10 @@
   --text: #111827;
   --text-muted: #6B7280;
   --text-inverted: #F9FAFB;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --border: #E5E7EB;
 
   --font-base: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -38,6 +51,7 @@
   --container-sm: 640px; --container-md: 1024px; --container-lg: 1280px;
 
   --focus-ring-color: #3B82F6; --focus-ring-offset: 2px; --focus-ring-width: 3px;
+<<<<<<< HEAD
 }
 :root[data-theme="dark"]{ --bg-base:#0B0F1A; --bg-elevated:#101625; --text:#F3F4F6; --text-muted:#9CA3AF; --border:#1F2937; }
 html, body{ background:var(--bg-base); color:var(--text); font-family:var(--font-base); line-height:var(--lh-normal); }
@@ -64,6 +78,33 @@ a{ color:var(--color-primary); text-decoration:none; } a:hover{ text-decoration:
 @media (max-width: 1023px) and (min-width: 641px){ .container{ max-width:var(--container-md); } .hide-md{ display:none !important; } }
 @media (max-width: 640px){ .container{ max-width:var(--container-sm); padding:var(--spacing-1); } .card{ border-radius:12px; padding:var(--spacing-1); } .table{ font-size:12px; overflow-x:auto; display:block; } .hide-sm{ display:none !important; } }
 :root[data-theme="dark"]{
+=======
+
+  /* Сопоставление с Bootstrap для светлой темы */
+  --bs-body-bg: var(--bg-base);
+  --bs-body-color: var(--text);
+  --bs-heading-color: var(--text);
+  --bs-border-color: var(--border);
+  --bs-link-color: var(--color-primary);
+  --bs-secondary-color: var(--text-muted);
+  --bs-card-bg: var(--bg-elevated);
+  --bs-card-color: var(--text);
+  --bs-table-bg: #fff;
+  --bs-table-color: var(--text);
+  --bs-table-striped-bg: rgba(0,0,0,.03);
+  --bs-table-striped-color: var(--text);
+}
+
+/* === ПЕРЕОПРЕДЕЛЕНИЯ ДЛЯ ТЁМНОЙ ТЕМЫ ===================================== */
+:root[data-bs-theme="dark"]{
+  --bg-base:#0B0F1A;
+  --bg-elevated:#101625;
+  --text:#F3F4F6;
+  --text-muted:#9CA3AF;
+  --border:#1F2937;
+
+  /* Сопоставление с Bootstrap для тёмной темы */
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --bs-body-bg: var(--bg-base);
   --bs-body-color: var(--text);
   --bs-heading-color: var(--text);
@@ -71,14 +112,24 @@ a{ color:var(--color-primary); text-decoration:none; } a:hover{ text-decoration:
   --bs-link-color: var(--color-primary);
 
   --bs-secondary-color: var(--text-muted);
+<<<<<<< HEAD
   --bs-secondary-color-rgb: 156,163,175;
   --bs-tertiary-color: var(--text-muted);
   --bs-emphasis-color: var(--text);
 
+=======
+  --bs-tertiary-color: var(--text-muted);
+  --bs-emphasis-color: var(--text);
+
+  --bs-card-bg: #101625;
+  --bs-card-color: var(--text);
+
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --bs-table-bg: #101625;
   --bs-table-color: var(--text);
   --bs-table-striped-bg: rgba(255,255,255,.05);
   --bs-table-striped-color: var(--text);
+<<<<<<< HEAD
   --bs-card-bg: #101625;
   --bs-card-color: var(--text);
 }
@@ -96,3 +147,84 @@ a{ color:var(--color-primary); text-decoration:none; } a:hover{ text-decoration:
 [data-theme="dark"] .btn-outline-dark .text-muted {
   color: var(--text-muted) !important;
 }
+=======
+}
+
+/* === ЖЁСТКО ЗАКРЕПИМ ФОН СТРАНИЦЫ (исправляет разные страницы) =========== */
+html, body,
+.bg-body,
+.bg-body-tertiary,
+.bg-light,
+.bg-white {
+  background-color: var(--bs-body-bg) !important;
+  color: var(--bs-body-color) !important;
+}
+
+/* === Базовая типографика/разметка ======================================== */
+html, body{ height:100%; }
+body{ min-height:100vh; display:flex; flex-direction:column; }
+main{ flex:1 0 auto; }
+footer{ margin-top:auto; }
+
+a{ color:var(--color-primary); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+
+.container{ max-width:var(--container-lg); margin:0 auto; padding:var(--spacing-2); }
+
+.card{
+  background:var(--bs-card-bg);
+  color:var(--bs-card-color);
+  border-radius:var(--radius-md);
+  box-shadow:var(--shadow-sm);
+  padding:var(--spacing-2);
+  border:1px solid var(--bs-border-color);
+}
+.card.inverted{ background:var(--bg-inverted); color:var(--text-inverted); }
+
+.btn{ display:inline-flex; align-items:center; gap:8px; border-radius:var(--radius-md); padding:10px 16px; font-weight:600; border:1px solid transparent; transition:transform .2s, box-shadow .2s; }
+.btn:focus{ outline:none; box-shadow:0 0 0 var(--focus-ring-width) var(--focus-ring-color); }
+.btn-primary{ background:var(--color-primary); color:var(--color-primary-contrast); }
+.btn-primary:hover{ transform:translateY(-1px); box-shadow:var(--shadow-md); }
+.btn-accent{ background:var(--color-accent); color:var(--color-accent-contrast); }
+.btn-outline{ background:transparent; border-color:var(--bs-border-color); color:var(--bs-body-color); }
+.btn-danger{ background:var(--color-danger); color:#fff; }
+
+.input, .form-control, .form-select, .form-control:focus, .form-select:focus{
+  background:var(--bg-base);
+  border:1px solid var(--bs-border-color);
+  color:var(--bs-body-color);
+  border-radius:12px;
+}
+.input:focus, .form-control:focus, .form-select:focus{ outline:none; box-shadow:0 0 0 var(--focus-ring-width) var(--focus-ring-color); }
+
+.table{ width:100%; border-collapse:separate; border-spacing:0; }
+.table th, .table td{ text-align:left; padding:12px; border-bottom:1px solid var(--bs-border-color); }
+.table thead th{ font-size:14px; color:var(--text-muted); font-weight:600; }
+
+.badge{ display:inline-block; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; }
+.badge.success{ background:rgba(16,185,129,.15); color:#10B981; }
+.badge.warning{ background:rgba(245,158,11,.15); color:#F59E0B; }
+.badge.danger{ background:rgba(239,68,68,.15); color:#EF4444; }
+
+/* Респонсив */
+@media (max-width:1023px) and (min-width:641px){
+  .container{ max-width:var(--container-md); }
+  .hide-md{ display:none !important; }
+}
+@media (max-width:640px){
+  .container{ max-width:var(--container-sm); padding:var(--spacing-1); }
+  .card{ border-radius:12px; padding:var(--spacing-1); }
+  .table{ font-size:12px; overflow-x:auto; display:block; }
+  .hide-sm{ display:none !important; }
+}
+
+/* Доп. выравнивание цвета muted в темной теме */
+[data-bs-theme="dark"] .text-muted,
+[data-bs-theme="dark"] .text-secondary,
+[data-bs-theme="dark"] .text-body-secondary,
+[data-bs-theme="dark"] .text-light-emphasis,
+[data-bs-theme="dark"] .form-text,
+[data-bs-theme="dark"] .btn .text-light-emphasis {
+  color: var(--text-muted) !important;
+}
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))

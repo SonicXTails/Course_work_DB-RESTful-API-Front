@@ -15,3 +15,15 @@ def role_flags(request):
         'IS_ADMIN_OR_ANALITIC': is_admin_or_analitic,
         'IS_ADMIN_OR_ANALYST': is_admin_or_analitic,  # на всякий случай
     }
+<<<<<<< HEAD
+=======
+
+def theme(request):
+    """Прокидываем выбранную тему в шаблоны как THEME.
+    Источник — сессия (ставим 'dark' по умолчанию).
+    """
+    t = (request.session.get('theme') or 'dark').lower()
+    if t not in ('dark', 'light'):
+        t = 'dark'
+    return {'THEME': t}
+>>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
