@@ -1,10 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<<<<<<< HEAD
-<html lang="ru" data-bs-theme="{{ THEME|default:'dark' }}">
-=======
-<html lang="ru" data-bs-theme="{{ THEME|default:'dark' }}" data-theme="{{ THEME|default:'dark' }}">
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
+<html lang="ru" data-bs-theme="dark" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,17 +10,35 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'css/logo.svg' %}">
   <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon.png' %}"/>
 
+  <meta name="server-theme" content="{{ THEME|default:'dark' }}">
+
+  <script>
+    (function () {
+      try {
+        var ls = null, server = null;
+        try { ls = localStorage.getItem('THEME_OVERRIDE'); } catch(e) {}
+        try {
+          var m = document.querySelector('meta[name="server-theme"]');
+          server = m ? m.getAttribute('content') : null;
+        } catch(e) {}
+
+        var osDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var next = (ls === 'dark' || ls === 'light') ? ls
+                 : (server === 'dark' || server === 'light') ? server
+                 : (osDark ? 'dark' : 'light');
+
+        document.documentElement.setAttribute('data-bs-theme', next);
+        document.documentElement.setAttribute('data-theme', next);
+      } catch (e) {}
+    })();
+  </script>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         rel="stylesheet"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous">
 
   <link rel="stylesheet" href="{% static 'css/brand.css' %}">
-<<<<<<< HEAD
-  <link rel="stylesheet" href="{% static 'css/brand-theme-classic.css' %}">
-
-=======
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   <link rel="preload" href="{% static 'js/hotkeys.js' %}" as="script">
 
   <style>
@@ -42,29 +56,11 @@
   {% if request.session.api_token %}
     <meta name="api-token" content="{{ request.session.api_token }}">
   {% endif %}
-
-  <script>
-    // РАНЕЕ ВЫСТАВЛЕНИЕ ТЕМЫ до загрузки CSS (из localStorage, если есть)
-    (function() {
-      try {
-        var ls = localStorage.getItem('THEME_OVERRIDE');
-        if (ls === 'dark' || ls === 'light') {
-          document.documentElement.setAttribute('data-bs-theme', ls);
-          document.documentElement.setAttribute('data-theme', ls);
-        }
-      } catch (e) {}
-    })();
-  </script>
 </head>
-<<<<<<< HEAD
-<body>
-=======
 <body class="bg-body">
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow">
     <div class="container">
 
-      {# === БРЕНД: не кликабелен для админа/аналитика === #}
       {% if request.session.api_token %}
         {% if request.session.is_admin or request.session.is_staff or request.session.is_super or request.user.is_staff or request.user.is_superuser %}
           <span class="navbar-brand fw-bold d-flex align-items-center gap-2">
@@ -109,7 +105,6 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto align-items-lg-center">
 
-          {# === Меню справа: для админа/аналитика — только «Выйти» === #}
           {% if request.session.api_token %}
             {% if request.session.is_admin or request.session.is_staff or request.session.is_super or request.user.is_staff or request.user.is_superuser %}
               <li class="nav-item">
@@ -182,8 +177,6 @@
 
     <div class="row g-4">
       <div class="col-12 col-md-4">
-
-        {# === Логотип в футере: не ссылка для админа/аналитика === #}
         {% if request.session.api_token %}
           {% if request.session.is_admin or request.session.is_staff or request.session.is_super or request.user.is_staff or request.user.is_superuser %}
             <span class="d-inline-flex align-items-center mb-2 text-decoration-none text-light">
@@ -226,7 +219,7 @@
         <ul class="list-unstyled d-flex gap-2 mb-0">
           <li>
             <a class="social-link" href="https://t.me/" target="_blank" rel="noopener" aria-label="Telegram">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.04 15.23 8.9 19.1c.32 0 .46-.14.62-.31l1.49-1.43 3.09 2.27c.57.31.98.15 1.13-.53л2.05-9.63c.18-.82-.31-1.14-.86-.94L4.6 11.06c-.82.32-.8.78-.14.99l3.61 1.13 8.37-5.29c.39-.24.74-.11.45.15"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.04 15.23 8.9 19.1c.32 0 .46-.14.62-.31l1.49-1.43 3.09 2.27c.57.31.98.15 1.13-.53l2.05-9.63c.18-.82-.31-1.14-.86-.94L4.6 11.06c-.82.32-.8.78-.14.99l3.61 1.13 8.37-5.29c.39-.24.74-.11.45.15"/></svg>
             </a>
           </li>
           <li>
@@ -236,7 +229,7 @@
           </li>
           <li>
             <a class="social-link" href="https://youtube.com" target="_blank" rel="noopener" aria-label="YouTube">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 7.5s-.23-1.66-.95-2.39c-.91-.95-1.93-.96-2.4-1C16.9 3.75 12 3.75 12 3.75h0s-4.9 0-8.15.36c-.47.04-1.49.05-2.4 1C.73 5.84.5 7.5.5 7.5S.25 9.43.25 11.35v1.3c0 1.93.25 3.85.25 3.85s.23 1.66.95 2.39c.91.95 2.11.92 2.64 1.02 1.92.18 8 .36 8 .36s4.9 0 8.15-.36c.47-.04 1.49-.05 2.4-1 .72-.73.95-2.39.95-2.39s.25-1.93.25-3.85v-1.3c0-1.92-.25-3.85-.25-3.85zM9.75 14.9V8.8л6.05 3.06-6.05 3.04z"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 7.5s-.23-1.66-.95-2.39c-.91-.95-1.93-.96-2.4-1C16.9 3.75 12 3.75 12 3.75h0s-4.9 0-8.15.36c-.47.04-1.49.05-2.4 1C.73 5.84.5 7.5.5 7.5S.25 9.43.25 11.35v1.3c0 1.93.25 3.85.25 3.85s.23 1.66.95 2.39c.91.95 2.11.92 2.64 1.02 1.92.18 8 .36 8 .36s4.9 0 8.15-.36c.47-.04 1.49-.05 2.4-1 .72-.73.95-2.39.95-2.39s.25-1.93.25-3.85v-1.3c0-1.92-.25-3.85-.25-3.85zM9.75 14.9V8.8l6.05 3.06-6.05 3.04z"/></svg>
             </a>
           </li>
           <li>
@@ -333,22 +326,22 @@
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script>
 
-<script>
-<<<<<<< HEAD
-  (function(){
-    const btn = document.getElementById('themeToggle');
-    if (!btn) return;
+  <script>
+    // ЕДИНАЯ ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ТЕМЫ + Alt+8 + синхронизация с сервером
+    (function(){
+      const API_BASE = "http://127.0.0.1:8000/api/v1";
+      const TOKEN = document.querySelector('meta[name="api-token"]')?.getAttribute('content') || "";
 
-    const API_BASE = "http://127.0.0.1:8000/api/v1";
-    const TOKEN = "{{ request.session.api_token|default:'' }}";
+      function setThemeAttr(next) {
+        document.documentElement.setAttribute('data-bs-theme', next);
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('THEME_OVERRIDE', next); } catch(e) {}
+      }
 
-    btn.addEventListener('click', async function () {
-      const current = document.documentElement.getAttribute('data-bs-theme') || 'dark';
-      const next = (current === 'light') ? 'dark' : 'light';
-
-      try {
-        if (TOKEN) {
-          const r = await fetch(API_BASE + "/users/me/theme/", {
+      async function saveThemeServer(next) {
+        if (!TOKEN) return;
+        try {
+          await fetch(API_BASE + "/users/me/theme/", {
             method: "PATCH",
             headers: {
               "Authorization": "Token " + TOKEN,
@@ -356,120 +349,51 @@
             },
             body: JSON.stringify({ theme: next })
           });
-          const data = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(data.detail || ("HTTP " + r.status));
-        }
-        document.documentElement.setAttribute('data-bs-theme', next);
-        btn.blur();
-      } catch (e) {
-        alert("Не удалось сохранить тему: " + (e?.message || e));
-=======
-  // Единая функция переключения темы — доступна как window.toggleTheme
-  (function(){
-    const API_BASE = "http://127.0.0.1:8000/api/v1";
-    const TOKEN = document.querySelector('meta[name="api-token"]')?.getAttribute('content') || "";
-
-    function setThemeAttr(next) {
-      document.documentElement.setAttribute('data-bs-theme', next);
-      document.documentElement.setAttribute('data-theme', next);
-      try { localStorage.setItem('THEME_OVERRIDE', next); } catch(e) {}
-    }
-
-    async function saveThemeServer(next) {
-      if (!TOKEN) return;
-      try {
-        const r = await fetch(API_BASE + "/users/me/theme/", {
-          method: "PATCH",
-          headers: {
-            "Authorization": "Token " + TOKEN,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ theme: next })
-        });
-        // даже если сервер недоступен — локально переключим тему
-        await r.text().catch(()=>{});
-      } catch(e) {}
-    }
-
-    window.toggleTheme = async function(next) {
-      const current = document.documentElement.getAttribute('data-bs-theme') || 'dark';
-      const target = (next === 'dark' || next === 'light') ? next : (current === 'light' ? 'dark' : 'light');
-      setThemeAttr(target);
-      await saveThemeServer(target);
-    };
-
-    // Кнопка в шапке
-    const btn = document.getElementById('themeToggle');
-    if (btn) {
-      btn.addEventListener('click', function(){ window.toggleTheme(); });
-    }
-
-    // Горячая клавиша: Alt + 8
-    document.addEventListener('keydown', function(e){
-      // игнорируем ввод в полях
-      const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
-      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
-      if (isTyping) return;
-
-      if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8')) {
-        e.preventDefault();
-        window.toggleTheme();
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
+        } catch(e) {}
       }
-    });
-  })();
-</script>
 
-<<<<<<< HEAD
-<script>
-  (function(){
-    function getMeta(name){
-      var el = document.querySelector('meta[name="'+name+'"]');
-      return el ? el.getAttribute('content') : null;
-    }
-    var isStaff = getMeta('is-staff') === '1';
-    var isSuper = getMeta('is-super') === '1';
-    var groupsCsv = (getMeta('user-groups') || '').toLowerCase();
-    var groups = groupsCsv ? groupsCsv.split(',').map(function(s){return s.trim();}) : [];
+      // Публичная функция (кнопка/горячая клавиша)
+      window.toggleTheme = async function(next) {
+        const current = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+        const target = (next === 'dark' || next === 'light') ? next : (current === 'light' ? 'dark' : 'light');
+        setThemeAttr(target);
+        await saveThemeServer(target);
+      };
 
-    var dict = {}; groups.forEach(function(g){ if(g) dict[g]=true; });
+      // Привязка к кнопке в шапке
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.addEventListener('click', function(){ window.toggleTheme(); });
 
-    var isAdminOrAnalyst =
-      isStaff || isSuper ||
-      dict['admin'] || dict['administrator'] || dict['администратор'] ||
-      dict['analyst'] || dict['analitic'] || dict['аналитик'];
+      // Горячая клавиша: Alt + 8
+      document.addEventListener('keydown', function(e){
+        const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+        const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
+        if (typing) return;
+        if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8')) {
+          e.preventDefault();
+          window.toggleTheme();
+        }
+      });
 
-    if (!isAdminOrAnalyst) return;
+      // NEW: Подтянуть тему из сервера после загрузки и сохранить в localStorage
+      // чтобы при следующем заходе страница с первого кадра была «правильной».
+      if (TOKEN) {
+        try {
+          fetch(API_BASE + "/users/me/theme/", {
+            headers: { "Authorization": "Token " + TOKEN }
+          })
+          .then(r => r.ok ? r.json() : null)
+          .then(j => {
+            if (j && (j.theme === 'dark' || j.theme === 'light')) {
+              setThemeAttr(j.theme);
+            }
+          })
+          .catch(()=>{});
+        } catch(e) {}
+      }
+    })();
+  </script>
 
-    var myOrders = document.getElementById('myOrdersLink');
-    if (myOrders) {
-      myOrders.classList.add('disabled','opacity-50','pointer-events-none');
-      myOrders.setAttribute('aria-disabled','true');
-      myOrders.setAttribute('tabindex','-1');
-      myOrders.setAttribute('href', '#');
-      myOrders.addEventListener('click', function(e){ e.preventDefault(); }, { passive:false });
-    }
-
-    document.querySelectorAll('.reserve-btn').forEach(function(btn){
-      btn.classList.add('disabled','opacity-50');
-      btn.setAttribute('aria-disabled','true');
-      if (btn.tagName === 'A') { btn.setAttribute('href', '#'); }
-      else { btn.setAttribute('disabled','disabled'); }
-      btn.addEventListener('click', function(e){ e.preventDefault(); }, { passive:false });
-    });
-
-    var orderBtn = document.getElementById('orderBtn');
-    if (orderBtn) {
-      orderBtn.classList.add('disabled','opacity-50');
-      orderBtn.setAttribute('aria-disabled','true');
-      orderBtn.setAttribute('disabled','disabled');
-      orderBtn.addEventListener('click', function(e){ e.preventDefault(); }, { passive:false });
-    }
-  })();
-</script>
-
-=======
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
-<script src="{% static 'js/hotkeys.js' %}"></script>
+  <script src="{% static 'js/hotkeys.js' %}"></script>
 </body>
 </html>

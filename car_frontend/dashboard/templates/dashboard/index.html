@@ -141,11 +141,7 @@
           <div class="card border-0 shadow-lg overflow-hidden">
             <!-- Новая ровная карточка -->
             <article class="car-card2">
-<<<<<<< HEAD
-              <!-- Фото (ВЕРНУЛ КАРУСЕЛЬ) -->
-=======
               <!-- Фото (карусель) -->
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
               <div class="car2-media">
                 <div id="carCarousel_{{ car.VIN }}" class="carousel slide" data-bs-interval="0">
                   <div class="carousel-inner">
@@ -212,11 +208,7 @@
                 </div>
 
                 <div class="car2-actions">
-<<<<<<< HEAD
-                  <a href="{% url 'car_detail' car.VIN %}" class="btn btn-outline-light btn-sm">Подробнее →</a>
-=======
                   <a href="{% url 'car_detail' car.VIN %}" class="btn btn-outline-secondary btn-sm">Подробнее →</a>
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
 
                   {% if user and car.status == 'available' %}
                     {% if request.session.is_admin_or_analitic %}
@@ -288,39 +280,17 @@
   /* Центрируем текст во всех .btn */
   .btn{ display:inline-flex; align-items:center; justify-content:center; text-align:center; }
 
-<<<<<<< HEAD
-  /* ===== Новый ровный макет карточки ===== */
-  .car-card2{
-    display:grid; grid-template-columns: 480px 1fr; gap:24px;
-    background:#1f2a36; color:#e9ecef;
-    border-radius:12px; border:1px solid #2b3a4a; padding:24px;
-=======
   /* ===== Ровный макет карточки, с переменными темы ===== */
   .car-card2{
     display:grid; grid-template-columns: 480px 1fr; gap:24px;
     background:var(--bg-elevated); color:var(--text);
     border-radius:12px; border:1px solid var(--border); padding:24px;
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   }
   @media (max-width: 992px){
     .car-card2{ grid-template-columns: 1fr; }
   }
 
   /* Фото (контейнер с соотношением 16:10) */
-<<<<<<< HEAD
-  .car2-media{ position:relative; border-radius:10px; overflow:hidden; background:#18222f; }
-  .car2-media::before{ content:""; display:block; padding-top:62.5%; } /* 16/10 */
-
-  /* Карусель должна заполнять контейнер */
-  .car2-media .carousel,
-  .car2-media .carousel-inner,
-  .car2-media .carousel-item{
-    position:absolute; inset:0; height:100%;
-  }
-  .car2-img{ width:100%; height:100%; object-fit:cover; }
-
-  /* Бейдж статуса и счётчик фото */
-=======
   .car2-media{ position:relative; border-radius:10px; overflow:hidden; background:var(--bg-base); }
   .car2-media::before{ content:""; display:block; padding-top:62.5%; } /* 16/10 */
 
@@ -329,7 +299,6 @@
   .car2-media .carousel-item{ position:absolute; inset:0; height:100%; }
   .car2-img{ width:100%; height:100%; object-fit:cover; }
 
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   .car2-status{
     position:absolute; left:12px; top:12px;
     font-weight:700; padding:.35rem .6rem; border-radius:.6rem;
@@ -340,16 +309,6 @@
     padding:.25rem .5rem; border-radius:.5rem; font-size:.8rem; backdrop-filter: blur(4px);
   }
 
-<<<<<<< HEAD
-  /* Правая часть */
-  .car2-info{ display:flex; flex-direction:column; min-width:0; }
-  .car2-head{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:8px; }
-  .car2-title{ margin:0; font-weight:800; color:#f6f9ff; }
-  .car2-year{ color:#aebacf; font-weight:600; margin-left:.25rem; }
-  .car2-price{ font-weight:800; font-size:clamp(22px, 3.2vw, 32px); white-space:nowrap; }
-
-  .car2-sub{ color:#c8d3e0; margin-bottom:10px; }
-=======
   .car2-info{ display:flex; flex-direction:column; min-width:0; }
   .car2-head{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:8px; }
   .car2-title{ margin:0; font-weight:800; color:var(--text); }
@@ -357,42 +316,22 @@
   .car2-price{ font-weight:800; font-size:clamp(22px, 3.2vw, 32px); white-space:nowrap; }
 
   .car2-sub{ color:var(--text-muted); margin-bottom:10px; }
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
 
   .car2-meta{
     display:grid; grid-template-columns: 180px 1fr; row-gap:6px; column-gap:12px;
     margin: 8px 0 16px;
   }
-<<<<<<< HEAD
-  .car2-meta dt{ color:#aebacf; font-weight:600; }
-  .car2-meta dd{ margin:0; color:#eef3f9; }
-
-  .car2-desc{
-    background:#18222f; border:1px solid #2b3a4a; border-radius:8px;
-    color:#eef3f9; padding:12px; margin-top:4px;
-=======
   .car2-meta dt{ color:var(--text-muted); font-weight:600; }
   .car2-meta dd{ margin:0; color:var(--text); }
 
   .car2-desc{
     background:var(--bg-base); border:1px solid var(--border); border-radius:8px;
     color:var(--text); padding:12px; margin-top:4px;
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
     display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden;
   }
 
   .car2-actions{ margin-top:16px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
 
-<<<<<<< HEAD
-  /* Вспомогательные под фильтры */
-  .bg-body { background:#18222f!important; }
-  .form-control, .form-select { color:#eef3f9!important; }
-  .form-control:focus, .form-select:focus { border-color:#42556b; box-shadow:none; }
-  .card.bg-dark { background:#1f2a36; }
-
-  .text-soft{ color:#aebacf!important; }
-  .text-soft-strong{ color:#c8d3e0!important; }
-=======
   /* Формы под тему */
   .form-control, .form-select{
     background:var(--bg-base); color:var(--text); border-color:var(--border);
@@ -403,7 +342,6 @@
   }
 
   .text-soft{ color:var(--text-muted)!important; }
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
 </style>
 
 <script>
@@ -450,10 +388,7 @@
     if (IS_ADMIN_OR_ANALITIC) {
       alert('Резерв недоступен для администратора и аналитика.');
       return;
-<<<<<<< HEAD
-=======
     }
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
 
     const sellerId = btn.dataset.seller;
     if (ME_ID && sellerId && String(ME_ID) === String(sellerId)) {

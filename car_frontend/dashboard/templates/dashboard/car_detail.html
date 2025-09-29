@@ -39,13 +39,6 @@
             {% else %}
               Оформить заказ
             {% endif %}
-<<<<<<< HEAD
-          </button>
-
-          <button id="payBtn" class="btn btn-success btn-sm" disabled>
-            Оплатить
-=======
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
           </button>
 
           <button id="payBtn" class="btn btn-success btn-sm" disabled>Оплатить</button>
@@ -597,14 +590,7 @@
     hideAlert();
     if (!TOKEN) { showAlert('warning', 'Войдите, чтобы оформить заказ.'); return; }
     if (orderBtn.disabled) return;
-<<<<<<< HEAD
-    if (IS_ADMIN_OR_ANALITIC) {
-      showAlert('warning', 'Резерв недоступен для администратора и аналитика.');
-      return;
-    }
-=======
     if (IS_ADMIN_OR_ANALITIC) { showAlert('warning', 'Резерв недоступен для администратора и аналитика.'); return; }
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
 
     orderBtn.disabled = true;
     const prevText = orderBtn.textContent;
@@ -712,9 +698,4 @@
 })();
 {% endautoescape %}
 </script>
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
 {% endblock %}

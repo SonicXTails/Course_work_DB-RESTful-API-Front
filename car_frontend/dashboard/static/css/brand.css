@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-:root{
-=======
 /* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (light по умолчанию) ========================== */
 :root,
 :root[data-bs-theme="light"]{
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --brand-name: "HunterAuto";
   --color-primary: #0057B8;
   --color-primary-contrast: #FFFFFF;
@@ -15,10 +11,7 @@
   --color-danger: #EF4444;
   --color-info: #3B82F6;
 
-<<<<<<< HEAD
-=======
   /* Светлая тема */
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --bg-base: #FFFFFF;
   --bg-elevated: #F7F9FC;
   --bg-inverted: #0B0F1A;
@@ -26,10 +19,6 @@
   --text: #111827;
   --text-muted: #6B7280;
   --text-inverted: #F9FAFB;
-<<<<<<< HEAD
-
-=======
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --border: #E5E7EB;
 
   --font-base: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -51,34 +40,6 @@
   --container-sm: 640px; --container-md: 1024px; --container-lg: 1280px;
 
   --focus-ring-color: #3B82F6; --focus-ring-offset: 2px; --focus-ring-width: 3px;
-<<<<<<< HEAD
-}
-:root[data-theme="dark"]{ --bg-base:#0B0F1A; --bg-elevated:#101625; --text:#F3F4F6; --text-muted:#9CA3AF; --border:#1F2937; }
-html, body{ background:var(--bg-base); color:var(--text); font-family:var(--font-base); line-height:var(--lh-normal); }
-a{ color:var(--color-primary); text-decoration:none; } a:hover{ text-decoration:underline; }
-.container{ max-width:var(--container-lg); margin:0 auto; padding:var(--spacing-2); }
-.card{ background:var(--bg-elevated); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:var(--spacing-2); border:1px solid var(--border); }
-.card.inverted{ background:var(--bg-inverted); color:var(--text-inverted); }
-.btn{ display:inline-flex; align-items:center; gap:8px; border-radius:var(--radius-md); padding:10px 16px; font-weight:600; border:1px solid transparent; transition:transform .2s, box-shadow .2s; }
-.btn:focus{ outline:none; box-shadow:0 0 0 var(--focus-ring-width) var(--focus-ring-color); }
-.btn-primary{ background:var(--color-primary); color:var(--color-primary-contrast); }
-.btn-primary:hover{ transform:translateY(-1px); box-shadow:var(--shadow-md); }
-.btn-accent{ background:var(--color-accent); color:var(--color-accent-contrast); }
-.btn-outline{ background:transparent; border-color:var(--border); color:var(--text); }
-.btn-danger{ background:var(--color-danger); color:#fff; }
-.input{ background:var(--bg-base); border:1px solid var(--border); color:var(--text); border-radius:12px; padding:10px 12px; }
-.input:focus{ outline:none; box-shadow:0 0 0 var(--focus-ring-width) var(--focus-ring-color); }
-.table{ width:100%; border-collapse:separate; border-spacing:0; }
-.table th, .table td{ text-align:left; padding:12px; border-bottom:1px solid var(--border); }
-.table thead th{ font-size:var(--fs-sm); color:var(--text-muted); font-weight:600; }
-.badge{ display:inline-block; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; }
-.badge.success{ background:rgba(16,185,129,.15); color:#10B981; }
-.badge.warning{ background:rgba(245,158,11,.15); color:#F59E0B; }
-.badge.danger{ background:rgba(239,68,68,.15); color:#EF4444; }
-@media (max-width: 1023px) and (min-width: 641px){ .container{ max-width:var(--container-md); } .hide-md{ display:none !important; } }
-@media (max-width: 640px){ .container{ max-width:var(--container-sm); padding:var(--spacing-1); } .card{ border-radius:12px; padding:var(--spacing-1); } .table{ font-size:12px; overflow-x:auto; display:block; } .hide-sm{ display:none !important; } }
-:root[data-theme="dark"]{
-=======
 
   /* Сопоставление с Bootstrap для светлой темы */
   --bs-body-bg: var(--bg-base);
@@ -104,7 +65,6 @@ a{ color:var(--color-primary); text-decoration:none; } a:hover{ text-decoration:
   --border:#1F2937;
 
   /* Сопоставление с Bootstrap для тёмной темы */
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --bs-body-bg: var(--bg-base);
   --bs-body-color: var(--text);
   --bs-heading-color: var(--text);
@@ -112,42 +72,16 @@ a{ color:var(--color-primary); text-decoration:none; } a:hover{ text-decoration:
   --bs-link-color: var(--color-primary);
 
   --bs-secondary-color: var(--text-muted);
-<<<<<<< HEAD
-  --bs-secondary-color-rgb: 156,163,175;
-  --bs-tertiary-color: var(--text-muted);
-  --bs-emphasis-color: var(--text);
-
-=======
   --bs-tertiary-color: var(--text-muted);
   --bs-emphasis-color: var(--text);
 
   --bs-card-bg: #101625;
   --bs-card-color: var(--text);
 
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
   --bs-table-bg: #101625;
   --bs-table-color: var(--text);
   --bs-table-striped-bg: rgba(255,255,255,.05);
   --bs-table-striped-color: var(--text);
-<<<<<<< HEAD
-  --bs-card-bg: #101625;
-  --bs-card-color: var(--text);
-}
-
-[data-theme="dark"] .text-muted,
-[data-theme="dark"] .text-secondary,
-[data-theme="dark"] .text-body-secondary,
-[data-theme="dark"] .text-light-emphasis,
-[data-theme="dark"] .form-text,
-[data-theme="dark"] .btn .text-light-emphasis {
-  color: var(--text-muted) !important;
-}
-
-[data-theme="dark"] .btn-dark .text-light-emphasis,
-[data-theme="dark"] .btn-outline-dark .text-muted {
-  color: var(--text-muted) !important;
-}
-=======
 }
 
 /* === ЖЁСТКО ЗАКРЕПИМ ФОН СТРАНИЦЫ (исправляет разные страницы) =========== */
@@ -227,4 +161,90 @@ a:hover{ text-decoration:underline; }
 [data-bs-theme="dark"] .btn .text-light-emphasis {
   color: var(--text-muted) !important;
 }
->>>>>>> 83ba5f0 (feat: разработам переключаетль темы с тёмной на светлую и данные об этом сохраняются на сервер (Front-API-psql))
+
+/* === Animations & micro-interactions ===================================== */
+:root{
+  --anim-fast: 150ms;
+  --anim: 250ms;
+  --anim-slow: 450ms;
+  --ease: cubic-bezier(.2,.7,.2,1);
+}
+
+/* Уважение системной настройки «уменьшить анимацию» */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* Плавные переходы ключевых поверхностей — красиво при смене темы */
+body,
+.navbar,
+.card,
+.offcanvas,
+.modal-content,
+.dropdown-menu,
+.list-group-item,
+.form-control,
+.form-select,
+.btn,
+.alert,
+.table,
+.badge {
+  transition:
+    background-color var(--anim) var(--ease),
+    color            var(--anim) var(--ease),
+    border-color     var(--anim) var(--ease),
+    box-shadow       var(--anim) var(--ease);
+}
+
+/* Карточки: деликатный «въезд» и ховер-подъём */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card {
+  animation: fadeSlideIn .35s var(--ease);
+  transition: transform var(--anim-fast) var(--ease), box-shadow var(--anim-fast) var(--ease);
+}
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+/* Кнопки: микро-толчок уже есть, добавим «рипл» по центру */
+.btn { position: relative; overflow: hidden; }
+.btn::after{
+  content:"";
+  position:absolute; inset:0;
+  border-radius:inherit; pointer-events:none;
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.35), rgba(255,255,255,0) 40%);
+  transform: scale(0); opacity:0;
+  transition: transform .45s var(--ease), opacity .6s var(--ease);
+}
+.btn:active::after{ transform: scale(2.4); opacity:.7; }
+
+/* Скелетон-заглушка (на див/картинки с загрузкой) — добавляй класс .shimmer */
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.shimmer{
+  position:relative; overflow:hidden;
+  background: linear-gradient(90deg,
+    rgba(255,255,255,.08),
+    rgba(255,255,255,.18),
+    rgba(255,255,255,.08));
+  background-size:200% 100%;
+  animation: shimmer 1.25s infinite linear;
+}
+[data-bs-theme="light"] .shimmer{
+  background: linear-gradient(90deg,
+    rgba(0,0,0,.06),
+    rgba(0,0,0,.12),
+    rgba(0,0,0,.06));
+}
+
+/* Пульс для заметных меток/чипов — используй .pulse или .pulse-once */
+@keyframes pulse {
+  0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(59,130,246,.35); }
+  70%  { transform: scale(1.03); box-shadow: 0 0 0 10px rgba(59,130,246,0); }
+  100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+}
+.pulse{ animation: pulse 1.2s var(--ease) infinite; }
+.pulse-once{ animation: pulse .9s var(--ease) 1; }
