@@ -1,0 +1,151 @@
+{% extends "dashboard/base.html" %}
+{% load humanize static %}
+{% block title %}Чек об оплате · № {{ transaction.id|default:"—" }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 920px;">
+  {% if not_found %}
+    <div class="alert alert-danger mb-3">
+      Чек №{{ tx_id|default:"—" }} не найден{% if error %}: {{ error }}{% endif %}.
+    </div>
+    <a class="btn btn-secondary" href="{% url 'users_dashboard' %}">← На главную</a>
+  {% else %}
+
+    <div class="d-flex justify-content-between align-items-start mb-3 no-print">
+      <div class="d-flex align-items-center gap-3">
+        <img src="{% static 'img/logo.svg' %}" alt="" width="36" height="36" onerror="this.style.display='none'">
+        <h3 class="m-0">Чек об оплате · № {{ transaction.id }}</h3>
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{% url 'users_dashboard' %}">На главную</a>
+        <a class="btn btn-outline-primary" href="{% url 'receipt_pdf' transaction.id %}" download="receipt-{{ transaction.id }}.pdf">Скачать PDF</a>
+        <button class="btn btn-primary" onclick="window.print()">Печать</button>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-lg">
+      <div class="card-body p-4">
+        <!-- Шапка чека -->
+        <div class="d-flex justify-content-between align-items-start flex-wrap mb-4">
+          <div>
+            <div class="fs-5 fw-semibold">{{ company.name }}</div>
+            <div class="text-secondary small">ИНН {{ company.inn }}</div>
+            <div class="text-secondary small">{{ company.address }}</div>
+            <div class="text-secondary small">{{ company.phone }}</div>
+          </div>
+          <div class="text-end">
+            <div class="text-secondary small">Дата</div>
+            <div class="fs-6">{{ transaction.transaction_date_fmt|default:transaction.transaction_date_obj|default:"—" }}</div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <!-- Таблица реквизитов -->
+        <dl class="row g-3 mb-0 receipt-grid">
+          <dt class="col-4 text-secondary">№ транзакции</dt>
+          <dd class="col-8 text-body">{{ transaction.id }}</dd>
+
+          <dt class="col-4 text-secondary">Покупатель</dt>
+          <dd class="col-8 text-body">
+            {{ buyer.last_name }} {{ buyer.first_name }} ({{ buyer.username }})
+          </dd>
+
+          <dt class="col-4 text-secondary">Автомобиль</dt>
+          <dd class="col-8 text-body">
+            {{ car.make }} {{ car.model }}{% if car.year %} · {{ car.year }}{% endif %}
+          </dd>
+
+          <dt class="col-4 text-secondary">VIN</dt>
+          <dd class="col-8 text-body font-monospace">{{ car.VIN }}</dd>
+
+          <dt class="col-4 text-secondary">Сумма</dt>
+          <dd class="col-8 text-body fs-5 fw-semibold">{{ transaction.amount|floatformat:0|intcomma }} ₽</dd>
+
+          <dt class="col-4 text-secondary">Статус</dt>
+          <dd class="col-8 text-body">
+            {% with s=transaction.status|lower %}
+              {% if s == "completed" or s == "paid" %}
+                <span class="badge bg-success">Оплачено</span>
+              {% elif s == "pending" %}
+                <span class="badge bg-warning text-dark">Ожидает</span>
+              {% elif s == "cancelled" or s == "canceled" %}
+                <span class="badge bg-secondary">Отменено</span>
+              {% else %}
+                {{ transaction.status|title }}
+              {% endif %}
+            {% endwith %}
+          </dd>
+        </dl>
+
+        <hr class="my-4">
+
+        <div class="small text-secondary mb-3">
+          Этот чек сформирован автоматически. Он подтверждает факт успешной оплаты заказа №{{ order.id }} на покупку автомобиля VIN {{ car.VIN }}.
+        </div>
+
+        <!-- Нормативные документы — подробный блок (только печать/экспорт в PDF из браузера) -->
+        <div class="gost-block print-only">
+          <div class="fw-semibold mb-2">Нормативные документы</div>
+
+          <div class="gost-item mb-3">
+            <div class="fw-semibold">ГОСТ Р 51709-2001</div>
+            <div class="text-secondary small mb-1">
+              «Автотранспортные средства. Требования безопасности к техническому состоянию и методы проверки».
+            </div>
+            <ul class="small mb-0">
+              <li>Устанавливает обязательные требования к исправности: тормоза, рулевое управление, внешние световые приборы, стеклоочистители/омыватель, шины/колёса, ремни безопасности и пр.</li>
+              <li>Описывает, что считается неисправностью и как это проверять на ТО/осмотре.</li>
+              <li><em>Для покупателя:</em> машина, передаваемая по договору, должна не иметь неисправностей, перечисленных в стандарте; иначе эксплуатация может быть запрещена.</li>
+            </ul>
+          </div>
+
+          <div class="gost-item mb-3">
+            <div class="fw-semibold">ГОСТ Р 50577-2018</div>
+            <div class="text-secondary small mb-1">
+              «Государственные регистрационные знаки транспортных средств. Типы и основные размеры, технические требования».
+            </div>
+            <ul class="small mb-0">
+              <li>Определяет типы номерных знаков, шрифты, светоотражающие свойства, маркировку и способы крепления.</li>
+              <li>Требования к читаемости и расположению на ТС.</li>
+              <li><em>Для покупателя:</em> убедитесь, что установленные номера соответствуют типу ТС, читаемы и корректно закреплены; это важно для регистрации и эксплуатации.</li>
+            </ul>
+          </div>
+
+          <div class="gost-item">
+            <div class="fw-semibold">ГОСТ 8769-75</div>
+            <div class="text-secondary small mb-1">
+              «Знаки дорожные. Общие технические условия».
+            </div>
+            <ul class="small mb-0">
+              <li>Регламентирует технические требования к дорожным знакам: размеры, отражающую способность, обозначения.</li>
+              <li>Непрямо влияет на эксплуатацию ТС (условия на дороге и требования к информированию водителя).</li>
+              <li><em>Для покупателя:</em> напрямую к состоянию автомобиля не относится, но указывает на стандартизированность дорожной среды, в которой ТС будет использоваться.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .receipt-grid dt { margin-bottom: .25rem; }
+  .receipt-grid dd { margin-bottom: .25rem; }
+
+  .gost-block .fw-semibold { line-height: 1.2; }
+  .gost-item ul { padding-left: 1.1rem; }
+
+  /* На экране скрываем блок ГОСТов, в печати показываем */
+  .print-only { display: none; }
+
+  @media print {
+    .navbar, .no-print { display: none !important; }
+    body { background: #fff !important; }
+    .card { box-shadow: none !important; border: 0 !important; }
+    .container { padding: 0 !important; }
+    a[href]:after { content: ""; }
+    .print-only { display: block; }
+  }
+</style>
+{% endblock %}

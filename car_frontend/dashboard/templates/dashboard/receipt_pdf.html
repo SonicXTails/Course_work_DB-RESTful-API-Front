@@ -1,0 +1,105 @@
+{% load humanize %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Чек № {{ transaction.id }}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif; color:#111; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 16px; }
+    .company { font-size: 14px; line-height: 1.3; }
+    .title { font-size: 22px; font-weight: 600; margin: 0; }
+    .muted { color: #666; }
+    .grid { display: grid; grid-template-columns: 180px 1fr; gap: 6px 16px; font-size: 14px; }
+    .label { color:#666; }
+    .value { color:#111; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 14px 0; }
+    .sum { font-size: 18px; font-weight: 700; }
+    .foot { margin-top: 18px; font-size: 12px; color:#666; }
+
+    .gost-block { margin-top: 16px; font-size: 12px; }
+    .gost-block .title { font-size: 14px; margin: 0 0 6px 0; }
+    .gost-item { margin-bottom: 10px; }
+    .gost-item ul { margin: 6px 0 0; padding-left: 16px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="company">
+      <div style="font-weight:600">{{ company.name }}</div>
+      <div class="muted">ИНН {{ company.inn }}</div>
+      <div class="muted">{{ company.address }}</div>
+      <div class="muted">{{ company.phone }}</div>
+    </div>
+    <div class="muted">Дата: {{ transaction.transaction_date_fmt|default:transaction.transaction_date_obj|default:"—" }}</div>
+  </div>
+
+  <h1 class="title">Чек об оплате № {{ transaction.id }}</h1>
+  <hr>
+
+  <div class="grid">
+    <div class="label">№ транзакции</div>
+    <div class="value">{{ transaction.id }}</div>
+
+    <div class="label">Покупатель</div>
+    <div class="value">{{ buyer.last_name }} {{ buyer.first_name }} ({{ buyer.username }})</div>
+
+    <div class="label">Автомобиль</div>
+    <div class="value">{{ car.make }} {{ car.model }}{% if car.year %} · {{ car.year }}{% endif %}</div>
+
+    <div class="label">VIN</div>
+    <div class="value">{{ car.VIN }}</div>
+
+    <div class="label">Сумма</div>
+    <div class="value sum">{{ transaction.amount|floatformat:0|intcomma }} ₽</div>
+
+    <div class="label">Статус</div>
+    <div class="value">
+      {% with s=transaction.status|lower %}
+        {% if s == "completed" or s == "paid" %}Оплачено
+        {% elif s == "pending" %}Ожидает
+        {% elif s == "cancelled" or s == "canceled" %}Отменено
+        {% else %}{{ transaction.status|title }}{% endif %}
+      {% endwith %}
+    </div>
+  </div>
+
+  <div class="foot">
+    Этот чек сформирован автоматически и подтверждает оплату заказа №{{ order.id }} (VIN {{ car.VIN }}).
+  </div>
+
+  <div class="gost-block">
+    <div class="title"><strong>Нормативные документы</strong></div>
+
+    <div class="gost-item">
+      <div><strong>ГОСТ Р 51709-2001</strong></div>
+      <div class="muted">«Автотранспортные средства. Требования безопасности к техническому состоянию и методы проверки».</div>
+      <ul>
+        <li>Обязательные требования к исправности тормозной системы, рулевого управления, световых приборов, шин/колёс, стеклоочистителей/омывателя, ремней безопасности и др.</li>
+        <li>Критерии неисправностей и методы проверки при осмотре/ТО.</li>
+        <li><em>Практическая польза:</em> при приёмке авто убедитесь в отсутствии неисправностей из стандарта; иначе эксплуатация может быть ограничена.</li>
+      </ul>
+    </div>
+
+    <div class="gost-item">
+      <div><strong>ГОСТ Р 50577-2018</strong></div>
+      <div class="muted">«Государственные регистрационные знаки транспортных средств. Типы и основные размеры, технические требования».</div>
+      <ul>
+        <li>Типы номеров, шрифты, светоотражение, маркировка и крепление.</li>
+        <li>Требования к читаемости и расположению.</li>
+        <li><em>Практическая польза:</em> проверьте соответствие и читаемость номеров — важно для регистрации и эксплуатации.</li>
+      </ul>
+    </div>
+
+    <div class="gost-item">
+      <div><strong>ГОСТ 8769-75</strong></div>
+      <div class="muted">«Знаки дорожные. Общие технические условия».</div>
+      <ul>
+        <li>Технические требования к дорожным знакам: размеры, отражающие свойства, обозначения.</li>
+        <li>Контекст эксплуатации ТС в стандартизированной дорожной среде.</li>
+        <li><em>Практическая польза:</em> напрямую к состоянию авто не относится, но задаёт единые требования к знакам, влияющим на режимы движения.</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

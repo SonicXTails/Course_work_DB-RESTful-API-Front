@@ -69,15 +69,12 @@ class Command(BaseCommand):
             Car.objects.all().delete()
             Model.objects.all().delete()
             Make.objects.all().delete()
-            # Пользователей и роли оставим — но почистим user-roles
             UserRole.objects.all().delete()
 
-        # --- Роли ---
         role_admin, _ = Role.objects.get_or_create(name="admin")
         role_user,  _ = Role.objects.get_or_create(name="user")
         role_anal,  _ = Role.objects.get_or_create(name="analitic")
 
-        # --- Пользователи ---
         def get_or_create_user(username, first, last, is_superuser=False, is_staff=False):
             u, created = User.objects.get_or_create(username=username, defaults={
                 "first_name": first, "last_name": last,
@@ -85,7 +82,7 @@ class Command(BaseCommand):
                 "email": f"{username}@example.com",
             })
             if created or not u.has_usable_password():
-                u.set_password("123")  # общий тестовый пароль
+                u.set_password("123")
                 u.save()
             return u
 
@@ -97,10 +94,8 @@ class Command(BaseCommand):
 
         for u in sellers + buyers:
             UserRole.objects.get_or_create(user=u, role=role_user)
-        # одному пользователю дадим роль аналитика
         UserRole.objects.get_or_create(user=sellers[0], role=role_anal)
 
-        # --- Марки/модели ---
         make_map = {}
         model_map = {}
         for make_name, models in MAKES_MODELS.items():
@@ -116,7 +111,6 @@ class Command(BaseCommand):
         self.stdout.write(f"Создаю ~{cars_to_create} авто, заказы, транзакции…")
 
         created_cars = []
-        # создаём авто за последние 90 дней
         for i in range(cars_to_create):
             make_name = choice(list(MAKES_MODELS.keys()))
             model_name = choice(MAKES_MODELS[make_name])
@@ -135,17 +129,14 @@ class Command(BaseCommand):
                 "description": f"{make_name} {model_name}, {year} г.в. Тестовое объявление.",
             }
 
-            # VIN как уникальная строка длиной 17 (условно)
             vin = f"DEMO{year}{i:05d}".ljust(17, "X")
 
             car = Car.objects.create(VIN=vin, **base)
             created_cars.append(car)
 
-            # поправим дату создания в прошлое (0..90 дней назад)
             created_shift = randint(0, 90)
             Car.objects.filter(pk=car.pk).update(created_at=now - timedelta(days=created_shift))
 
-        # --- Сделки: для ~70% машин создадим заказ, для ~50% из них — успешную оплату ---
         total_orders = 0
         total_paid = 0
         orders_for_reviews = []
@@ -156,32 +147,25 @@ class Command(BaseCommand):
                 if buyer.id == getattr(car.seller, "id", None):
                     buyer = choice([b for b in buyers if b.id != getattr(car.seller, "id", None)])
 
-                # заказ через API-логику модели: при создании Order статус авто станет RESERVED
                 order = Order.objects.create(buyer=buyer, car=car, total_amount=car.price)
                 total_orders += 1
 
-                # откатим дату заказа на 0..30 дней после публикации
                 car_refresh = Car.objects.get(pk=car.pk)
                 base_created = car_refresh.created_at
                 order_shift = randint(0, 30)
                 Order.objects.filter(pk=order.pk).update(order_date=base_created + timedelta(days=order_shift))
 
-                # часть заказов отменим (20%), часть оставим pending (30%), остальное оплатим (50%)
                 r = random()
                 if r < 0.20:
                     order.status = Order.Status.CANCELLED
                     order.save(update_fields=["status"])
-                    # модель сама вернёт машину в AVAILABLE
                 elif r < 0.50:
-                    # оставляем PENDING (ничего не делаем)
                     pass
                 else:
-                    # оплачиваем: Transaction.save переведёт заказ в PAID и машину в SOLD
                     Transaction.objects.create(order=order, amount=order.total_amount)
                     total_paid += 1
                     orders_for_reviews.append(order)
 
-        # --- Отзывы: каждый успешный покупатель оставит отзыв своему продавцу (не чаще 1 на пару) ---
         for order in sample(orders_for_reviews, k=max(1, len(orders_for_reviews)//2)):
             author = order.buyer
             target = order.car.seller

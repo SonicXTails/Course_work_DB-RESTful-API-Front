@@ -5,14 +5,20 @@ from .common import ROLES_URL, API_URL, _get_json, _safe_json, _post_json, MAKES
 
 @admin_required
 def admin_dashboard_view(request):
-    # Базовый каркас. Подробный наполняется в profile_view для админа.
+    token = request.session.get("api_token")
+    makes = []
+    try:
+        data = _get_json(f"{MAKES_URL}?limit=1000", token)
+        makes = data.get("results", data) if isinstance(data, dict) else (data or [])
+    except Exception:
+        makes = []
     ctx = {
         "is_admin": True,
-        "has_token": bool(request.session.get("api_token")),
+        "has_token": bool(token),
         "users": [],
         "roles": [],
         "audit_logs": [],
-        "makes": [],
+        "makes": makes,
     }
     return render(request, "dashboard/admin.html", ctx)
 

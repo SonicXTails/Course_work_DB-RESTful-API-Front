@@ -24,13 +24,12 @@ class Command(BaseCommand):
         out_path = Path(opts["output"]).resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         apps_filter = {a.strip() for a in opts["apps"].split(",") if a.strip()}
-        only_unapplied = opts["only_unapplied"]  # <-- ключ с подчёркиванием!
+        only_unapplied = opts["only_unapplied"] 
 
         connection = connections[db]
         executor = MigrationExecutor(connection)
         loader = executor.loader
 
-        # Построим полный топологический порядок: объединяем forwards-планы для всех листьев
         seen = set()
         ordered = []
         for leaf in loader.graph.leaf_nodes():
@@ -41,7 +40,6 @@ class Command(BaseCommand):
                 migration = loader.graph.nodes[key]
                 ordered.append((migration.app_label, migration.name, migration))
 
-        # Собираем SQL
         buf = StringIO()
         for app_label, name, migration in ordered:
             if apps_filter and app_label not in apps_filter:
@@ -58,7 +56,6 @@ class Command(BaseCommand):
 
             sql = tmp.getvalue().strip()
             if not sql:
-                # миграция без SQL (например, PurePython операции)
                 buf.write(f"-- {app_label}.{name} (нет SQL)\n\n")
                 continue
 

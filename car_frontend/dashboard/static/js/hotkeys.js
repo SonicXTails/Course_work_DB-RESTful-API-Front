@@ -158,7 +158,6 @@
       if(k==='s'){ saveFilters();  return void e.preventDefault(); }
     }
 
-    // Новый хоткей для панели фильтров — Alt+Shift+F (чтобы не конфликтовал с браузером)
     if(e.altKey && e.shiftKey && k==='f'){
       toggleFiltersPanel();
       return void e.preventDefault();

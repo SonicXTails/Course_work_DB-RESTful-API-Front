@@ -268,3 +268,20 @@ class BackupConfig(models.Model):
 
     def __str__(self):
         return f"BackupConfig(last_run_at={self.last_run_at})"
+    
+class Favorite(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites")
+    # Предполагается, что у Car PK = VIN (как в ваших вьюсетах).
+    car  = models.ForeignKey("core.Car", on_delete=models.CASCADE, related_name="in_favorites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "car")
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["car"]),
+        ]
+        db_table = "core_favorite"
+
+    def __str__(self):
+        return f"{self.user_id} → {getattr(self.car, 'VIN', self.car_id)}"

@@ -8,13 +8,13 @@
 - `restore.ps1` — PowerShell-скрипт для Windows.
 - `verify.sql` — SQL-проверки после восстановления.
 
-> Если бэкап у тебя в формате *custom* (`.dump`), используй `pg_restore` вместо `psql`:
-> `pg_restore -d <DB> -c -j 4 <file.dump>` и пропусти распаковку gzip.
+> Если бэкап в формате *custom* (`.dump`), используйте `pg_restore` вместо `psql`:
+> `pg_restore -d <DB> -c -j 4 <file.dump>` и пропустите распаковку gzip.
 
 ## 1) Подготовка
-1. Установи клиентские утилиты PostgreSQL: `psql`, `pg_dump` (обычно в пакете `postgresql-client`).
-2. Узнай или задай параметры подключения: хост, порт, пользователь. Пароль передаётся через `PGPASSWORD`.
-3. Помести бэкап `*.sql.gz` в папку `./backups` (или укажи путь ключом `-f`).
+1. Установите клиентские утилиты PostgreSQL: `psql`, `pg_dump` (обычно в пакете `postgresql-client`).
+2. Узнайте или задайте параметры подключения: хост, порт, пользователь. Пароль передаётся через `PGPASSWORD`.
+3. Поместите бэкап `*.sql.gz` в папку `./backups` (или укажите путь ключом `-f`).
 
 ## 2) Имитация сбоя (опционально, для демонстрации)
 ```sql
@@ -39,9 +39,11 @@ export PGPASSWORD='секретный_пароль'
 ```powershell
 cd /mnt/data/restore
 $env:PGPASSWORD = "секретный_пароль"
-.\restore.ps1 -DbName api_car -BackupFile .\backups\2025-09-01_03-00.sql.gz -User appuser -Host 127.0.0.1 -Port 5432
+.
+estore.ps1 -DbName api_car -BackupFile .ackups5-09-01_03-00.sql.gz -User appuser -Host 127.0.0.1 -Port 5432
 # или без указания файла — возьмётся самый свежий
-.\restore.ps1 -DbName api_car -User appuser
+.
+estore.ps1 -DbName api_car -User appuser
 ```
 
 ## 5) Проверка целостности
@@ -51,7 +53,7 @@ $env:PGPASSWORD = "секретный_пароль"
 - делает несколько выборочных проверок внешних ключей;
 - проверяет наличие представлений `vw_active_listings`, `vw_sales_by_make_month`, `vw_user_activity`.
 
-При необходимости отредактируй список сущностей под свою схему.
+При необходимости отредактируйте список сущностей под свою схему.
 
 ## 6) Восстановление в Docker
 Если PostgreSQL запущен в Docker-контейнере, то есть три пути:
@@ -66,11 +68,7 @@ export PGPASSWORD='секрет'
 ```bash
 CONTAINER=pgdb
 docker cp backups/last.sql.gz "$CONTAINER:/tmp/last.sql.gz"
-docker exec -e PGPASSWORD=secret -it "$CONTAINER" bash -lc \
-  "gzip -dc /tmp/last.sql.gz | psql -U appuser -d postgres -c \"DROP DATABASE IF EXISTS api_car;\" && \
-   psql -U appuser -d postgres -c \"CREATE DATABASE api_car OWNER appuser;\" && \
-   gzip -dc /tmp/last.sql.gz | psql -U appuser -d api_car && \
-   psql -U appuser -d api_car -f /tmp/verify.sql"
+docker exec -e PGPASSWORD=secret -it "$CONTAINER" bash -lc   "gzip -dc /tmp/last.sql.gz | psql -U appuser -d postgres -c "DROP DATABASE IF EXISTS api_car;" &&    psql -U appuser -d postgres -c "CREATE DATABASE api_car OWNER appuser;" &&    gzip -dc /tmp/last.sql.gz | psql -U appuser -d api_car &&    psql -U appuser -d api_car -f /tmp/verify.sql"
 ```
 
 **C. `docker-compose exec` (аналогично B):**
@@ -79,17 +77,17 @@ docker-compose exec -e PGPASSWORD=secret db bash -lc "gzip -dc /backups/last.sql
 ```
 
 ## 7) После восстановления
-1. Прогони миграции приложения (на случай несовпадения версий схемы с кодом):
+1. Выполните миграции приложения (на случай несовпадения версий схемы с кодом):
    - Django: `python manage.py migrate`.
-2. Перегенерируй материализованные представления (если используются).
-3. Перезапусти API/веб:
+2. Перегенерируйте материализованные представления (если используются).
+3. Перезапустите API/веб:
    - `systemctl restart api` / `docker compose restart api`
-4. Зайди в приложение под **администратором** и визуально проверь ключевые экраны.
+4. Зайдите в приложение под **администратором** и визуально проверьте ключевые экраны.
 
 ## 8) Типичные ошибки и решения
-- *FATAL: database "..." is being accessed by other users* — скрипт уже делает `pg_terminate_backend`, но проверь активные коннекты/пулы.
-- *permission denied* — у пользователя нет прав на `DROP/CREATE DATABASE`. Выполни под суперпользователем или заранее создай пустую БД и передай `--no-drop`.
-- Бэкап **в формате custom** (`.dump`) — используй `pg_restore`:
+- *FATAL: database "..." is being accessed by other users* — скрипт уже делает `pg_terminate_backend`, но проверьте активные коннекты/пулы.
+- *permission denied* — у пользователя нет прав на `DROP/CREATE DATABASE`. Выполните под суперпользователем или заранее создайте пустую БД и передайте `--no-drop`.
+- Бэкап **в формате custom** (`.dump`) — используйте `pg_restore`:
   ```bash
   createdb api_car
   pg_restore -d api_car -c -j 4 last.dump

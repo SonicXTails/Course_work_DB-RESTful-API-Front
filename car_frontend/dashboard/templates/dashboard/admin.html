@@ -62,7 +62,6 @@
 
   <div class="d-flex align-items-center justify-content-between mt-3">
     <h3 class="mb-0">Последние действия</h3>
-    <!-- была btn-dark — теперь outline-secondary, чтобы подхватывать тему -->
     <button id="auditToggleBtn" type="button"
             class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
             aria-expanded="true">
@@ -78,7 +77,6 @@
 
   <section id="auditSection" class="mt-3">
     <div class="table-responsive">
-      <!-- убрал table-dark: теперь обычная таблица, которую красит brand.css по теме -->
       <table class="table table-striped align-middle admin-table">
         <thead>
         <tr>
@@ -136,6 +134,13 @@
         {% endfor %}
         </tbody>
       </table>
+      <div class="d-flex align-items-center justify-content-between mt-2" id="auditPager" hidden>
+        <div class="small text-body-secondary" id="auditPageInfo">Страница 1</div>
+        <div class="btn-group">
+          <button id="auditPrev" type="button" class="btn btn-outline-secondary btn-sm" disabled>‹ Назад</button>
+          <button id="auditNext" type="button" class="btn btn-outline-secondary btn-sm" disabled>Вперёд ›</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -209,7 +214,6 @@
   <hr class="my-4">
   <h3 class="mb-3 d-flex align-items-center justify-content-between">
     <span>Резервные копии БД</span>
-    <!-- была btn-outline-dark — теперь outline-secondary -->
     <button id="backupsToggleBtn" type="button" class="btn btn-outline-secondary btn-sm">
       Скрыть бэкапы <small class="text-body-secondary">(Alt+K)</small>
     </button>
@@ -237,7 +241,7 @@
             <th>Размер</th>
             <th>SHA-256</th>
             <th>Статус</th>
-            <th></th>
+            <th class="text-end">Действия</th>
           </tr>
         </thead>
         <tbody id="backupsBody">
@@ -250,53 +254,27 @@
 </div>
 
 <style>
-  /* единый стиль «плиточных» кнопок, дружелюбный к обеим темам */
-  .page-admin .btn-tile{
-    border-width:2px;
-    font-weight:600;
-    border-color: var(--border);
-    box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,.08));
-  }
-  .page-admin .btn-tile:hover{ box-shadow: var(--shadow-md, 0 10px 25px rgba(0,0,0,.1)); }
-
-  .btn-swagger { background:#85ea2d; color:#111; }
-  .btn-swagger .shortcut { color:#000; font-weight:500; }
-
-  .btn-redoc { background:#2d3e50; color:#fff; }
-  .btn-redoc .shortcut { color:#d1d5db; }
-
-  .btn-admin { background:#2c3e50; color:#f9f871; }
-  .btn-admin .shortcut { color:#b0bec5; }
-
-  .btn-drf { background:#6f42c1; color:#fff; }
-  .btn-drf .shortcut { color:#d1c4e9; }
-
-  /* таблицы: прибиваем фон/бордюры к переменным темы */
-  .admin-table{
-    --bs-table-bg: var(--bs-card-bg, var(--bg-elevated));
-    --bs-table-color: var(--text);
-    --bs-table-border-color: var(--border);
-    --bs-table-striped-bg: color-mix(in srgb, var(--bs-table-bg) 92%, #000 8%);
-    --bs-table-striped-color: var(--text);
-  }
-
-  /* служебное */
-  [hidden]{display:none!important;}
+  .page-admin .btn-tile{border-width:2px;font-weight:600;border-color:var(--border);box-shadow:var(--shadow-sm,0 2px 8px rgba(0,0,0,.08))}
+  .page-admin .btn-tile:hover{box-shadow:var(--shadow-md,0 10px 25px rgba(0,0,0,.1))}
+  .btn-swagger{background:#85ea2d;color:#111}.btn-swagger .shortcut{color:#000;font-weight:500}
+  .btn-redoc{background:#2d3e50;color:#fff}.btn-redoc .shortcut{color:#d1d5db}
+  .btn-admin{background:#2c3e50;color:#f9f871}.btn-admin .shortcut{color:#b0bec5}
+  .btn-drf{background:#6f42c1;color:#fff}.btn-drf .shortcut{color:#d1c4e9}
+  .admin-table{--bs-table-bg:var(--bs-card-bg,var(--bg-elevated));--bs-table-color:var(--text);--bs-table-border-color:var(--border);--bs-table-striped-bg:color-mix(in srgb, var(--bs-table-bg) 92%, #000 8%);--bs-table-striped-color:var(--text)}
+  [hidden]{display:none!important}
 </style>
 
-{# --- JS ниже без изменений, кроме классов кнопок, которые мы поменяли выше --- #}
-
 <script>
-document.addEventListener("keydown", function(e) {
-  const tag = (e.target?.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-  if (!e.altKey) return;
-  switch (e.key) {
+document.addEventListener("keydown", function(e){
+  const tag=(e.target?.tagName||'').toLowerCase(); if(['input','textarea','select'].includes(tag)) return;
+  if(!e.altKey) return;
+  switch(e.key){
     case "1": document.getElementById("btn-swagger")?.click(); break;
     case "2": document.getElementById("btn-redoc")?.click(); break;
     case "3": document.getElementById("btn-admin8400")?.click(); break;
     case "4": document.getElementById("btn-admin8000")?.click(); break;
     case "5": document.getElementById("btn-api")?.click(); break;
+    case "r": case "R": document.getElementById("repricePercent")?.focus(); break;
   }
 });
 </script>
@@ -304,34 +282,36 @@ document.addEventListener("keydown", function(e) {
 <script>
   const API_BASE  = "http://127.0.0.1:8000/api/v1";
   const API_TOKEN = "{{ request.session.api_token|default:'' }}";
-
-  async function apiFetch(path, options = {}) {
-    if (!API_TOKEN) throw new Error("Нет токена в сессии — перелогинься");
-    const url = API_BASE + (path.startsWith("/") ? path : ("/" + path));
-    const headers = { "Authorization": "Token " + API_TOKEN, ...(options.headers || {}) };
-    if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-    return fetch(url, { ...options, headers, mode: "cors", credentials: "omit" });
+  async function apiFetch(path, options = {}){
+    if(!API_TOKEN) throw new Error("Нет токена в сессии — перелогинься");
+    const isAbs=/^https?:\/\//i.test(path);
+    const url=isAbs?path:API_BASE+(path.startsWith("/")?path:("/"+path));
+    const headers={"Authorization":"Token "+API_TOKEN,...(options.headers||{})};
+    if(options.body && !headers["Content-Type"]) headers["Content-Type"]="application/json";
+    return fetch(url,{...options,headers,mode:"cors",credentials:"omit"});
   }
 </script>
 
 <script>
-(function () {
+(function(){
   const searchInput = document.getElementById('userSearch');
   const selectEl    = document.getElementById('userSelect');
   const emptyHint   = document.getElementById('userEmptyHint');
   if (!searchInput || !selectEl) return;
 
-  const allOptions = Array.from(selectEl.options).map(o => ({ value: o.value, text: o.text })).filter(o => !!o.value);
+  const collect = () =>
+    Array.from(selectEl.options).map(o => ({ value: o.value, text: o.text })).filter(o => !!o.value);
 
-  function render(list, prefer = null) {
+  let allOptions = collect();
+
+  function render(list, prefer = null){
     const prev = prefer ?? (selectEl.value || null);
     selectEl.innerHTML = '';
-    for (const {value, text} of list) {
+    for (const {value, text} of list){
       const opt = document.createElement('option');
-      opt.value = value; opt.textContent = text;
-      selectEl.appendChild(opt);
+      opt.value = value; opt.textContent = text; selectEl.appendChild(opt);
     }
-    if (list.length > 0) {
+    if (list.length > 0){
       const idx = list.findIndex(x => x.value == prev);
       selectEl.selectedIndex = idx >= 0 ? idx : 0;
       emptyHint.classList.add('d-none');
@@ -339,25 +319,26 @@ document.addEventListener("keydown", function(e) {
       emptyHint.classList.remove('d-none');
     }
   }
-
-  function filterUsers(q) {
+  function filterUsers(q){
     const query = q.trim().toLowerCase();
     const filtered = query ? allOptions.filter(o => o.text.toLowerCase().includes(query)) : allOptions;
     render(filtered);
   }
 
   let t;
-  searchInput.addEventListener('input', () => {
-    clearTimeout(t);
-    t = setTimeout(() => filterUsers(searchInput.value), 100);
+  searchInput.addEventListener('input', ()=>{
+    clearTimeout(t); t = setTimeout(()=>filterUsers(searchInput.value), 100);
   });
-
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); selectEl.focus(); }
+  searchInput.addEventListener('keydown', (e)=>{
+    if (e.key === 'ArrowDown'){ e.preventDefault(); selectEl.focus(); }
   });
-
-  selectEl.addEventListener('dblclick', () => {
+  selectEl.addEventListener('dblclick', ()=>{
     document.querySelector('#roleForm button[type="submit"]')?.click();
+  });
+
+  document.addEventListener('users-loaded', ()=>{
+    allOptions = collect();
+    render(allOptions);
   });
 
   render(allOptions);
@@ -365,346 +346,425 @@ document.addEventListener("keydown", function(e) {
 </script>
 
 <script>
-(function () {
-  const form      = document.getElementById("roleForm");
+(function(){
+  const form = document.getElementById("roleForm");
+  if (!form) return;
+
   const userSel   = document.getElementById("userSelect");
   const roleSel   = document.getElementById("roleSelect");
   const resultDiv = document.getElementById("roleResult");
-  const submitBtn = form?.querySelector('button[type="submit"]');
-  if (!form) return;
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  async function tryAssignJSON(userId, roleId){
+    return apiFetch("/admin/user_roles/assign/", {
+      method: "POST",
+      body: JSON.stringify({ user: userId, role: roleId })
+    });
+  }
+  async function tryAssignForm(userId, roleId){
+    const body = new URLSearchParams({ user: String(userId), role: String(roleId) });
+    return apiFetch("/admin/user_roles/assign/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    });
+  }
+  async function parseMaybeJSON(res){
+    const txt = await res.text();
+    try { return txt ? JSON.parse(txt) : null; } catch { return txt || null; }
+  }
+  function show(ok, html){
+    resultDiv.innerHTML = `<div class="alert alert-${ok?'success':'danger'}">${html}</div>`;
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const userId = Number(userSel.value);
     const roleId = Number(roleSel.value);
     if (!userId || !roleId) {
-      resultDiv.innerHTML = `<div class="alert alert-warning">Выбери пользователя и роль</div>`;
+      show(false, "Выбери пользователя и роль");
       return;
     }
+
+    const old = submitBtn.textContent;
+    submitBtn.disabled = true; submitBtn.textContent = "Назначаю…";
+
     try {
-      submitBtn.disabled = true;
-      const oldText = submitBtn.textContent;
-      submitBtn.textContent = "Назначаю…";
+      let res = await tryAssignJSON(userId, roleId);
+      if (res.status === 415) res = await tryAssignForm(userId, roleId);
 
-      const res = await apiFetch("/admin/user_roles/assign/", {
-        method: "POST",
-        body: JSON.stringify({ user: userId, role: roleId })
-      });
+      const data = await parseMaybeJSON(res);
+      if (res.ok) {
+        const u = (data && (data.user ?? data.user_id)) ?? userId;
+        const r = (data && (data.role ?? data.role_id)) ?? roleId;
+        show(true, `Роль назначена: user=${u}, role=${r}`);
 
-      let data = null; try { data = await res.json(); } catch(_) {}
-
-      if (res.ok && data && (data.id || (data.user && data.role))) {
-        resultDiv.innerHTML = `<div class="alert alert-success">Роль назначена: user=${data.user}, role=${data.role}</div>`;
+        // мгновенно перезагрузить аудит-лог
+        document.dispatchEvent(new CustomEvent("auditlog-reload"));
       } else {
-        resultDiv.innerHTML = `<div class="alert alert-danger">Не удалось назначить роль. Код: ${res.status}<br>${data ? JSON.stringify(data) : "Пустой ответ"}</div>`;
+        const msg = (data && (data.detail || data.error || JSON.stringify(data))) || `HTTP ${res.status}`;
+        show(false, `Не удалось назначить роль. ${msg}`);
       }
-      submitBtn.textContent = oldText;
-      submitBtn.disabled = false;
     } catch (err) {
       const hint = String(err).includes("перелогинься")
         ? "Сессия без токена — зайди заново через форму авторизации."
-        : "Проверь, что в запросе есть заголовок Authorization и настроен CORS.";
-      resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${String(err)}<br>${hint}</div>`;
-      submitBtn.disabled = false;
+        : "Проверь заголовок Authorization и CORS.";
+      show(false, `Ошибка: ${String(err)}<br>${hint}`);
+    } finally {
+      submitBtn.disabled = false; submitBtn.textContent = old;
     }
   });
 })();
 </script>
 
 <script>
-(function () {
-  const section  = document.getElementById('auditSection');
-  const tbody    = document.getElementById('auditBody');
-  const btn      = document.getElementById('auditToggleBtn');
-  const filterEl = document.getElementById('actorFilter');
-  const searchEl = document.getElementById('actorSearch');
-  if (!section || !tbody || !btn) return;
+(async function(){
+  const userSel = document.getElementById("userSelect");
+  const roleSel = document.getElementById("roleSelect");
+  if (!userSel || !roleSel) return;
 
-  btn.disabled = false;
-  btn.removeAttribute('disabled');
-  btn.style.pointerEvents = 'auto';
-
-  let rawData = [];
-  let lastHash = null;
-  const intervalMs = 5000;
-
-  const pad = n => String(n).padStart(2, '0');
-  const fmtDate = iso => {
-    const d = new Date(iso);
-    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  };
-  const ago = iso => {
-    const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime())/1000));
-    if (sec < 60) return `${sec} с назад`;
-    const min = Math.floor(sec/60);
-    if (min < 60) return `${min} мин назад`;
-    const hr = Math.floor(min/60);
-    if (hr < 24) return `${hr} ч назад`;
-    const day = Math.floor(hr/24);
-    return `${day} д назад`;
-  };
-  const badge = a => a==='CREATE'||a==='POST' ? '<span class="badge bg-success">POST</span>'
-                : a==='UPDATE'||a==='PUT' ? '<span class="badge bg-warning text-dark">PUT</span>'
-                : a==='DELETE' ? '<span class="badge bg-danger">DELETE</span>'
-                : `<span class="badge bg-secondary">${a}</span>`;
-
-  const actorName = log => log.actor_label || log.user_username || 'система';
-
-  const rowHtml = log => {
-    const whenHuman = ago(log.action_time);
-    const whenExact = fmtDate(log.action_time);
-    const actor = actorName(log);
-    let changes = '';
-    if (log.action === 'UPDATE' || log.action === 'PUT') {
-      const od = typeof log.old_data === 'object' ? JSON.stringify(log.old_data) : (log.old_data ?? '');
-      const nd = typeof log.new_data === 'object' ? JSON.stringify(log.new_data) : (log.new_data ?? '');
-      changes = `<details data-log-id="${log.id||''}"><summary>Посмотреть</summary><div><b>Старое:</b> ${od}</div><div><b>Новое:</b> ${nd}</div></details>`;
-    } else if (log.action === 'CREATE' || log.action === 'POST') {
-      changes = `<span class="text-success">Создано</span>`;
-    } else if (log.action === 'DELETE') {
-      changes = `<span class="text-danger">Удалено</span>`;
-    }
-    return `<tr data-log-id="${log.id||''}">
-      <td>${whenHuman}</td>
-      <td>${whenExact}</td>
-      <td>${actor}</td>
-      <td>${badge(log.action)}</td>
-      <td>${log.table_name ?? ''}</td>
-      <td>${log.record_id ?? ''}</td>
-      <td>${changes}</td>
-    </tr>`;
-  };
-
-  const isAdminLog = log => (log.actor_label || '').toLowerCase().startsWith('admin:');
-  const isUserLog  = log => (log.user != null) && !isAdminLog(log);
-  const isNoneLog  = log => !log?.actor_label && (log?.user == null || log?.user === undefined) && !log?.user_username;
-
-  function passesFilter(log) {
-    const mode = filterEl ? filterEl.value : 'all';
-    if (mode === 'admin') return isAdminLog(log);
-    if (mode === 'users') return isUserLog(log);
-    if (mode === 'none')  return isNoneLog(log);
-    return true;
+  async function getJSON(url){
+    const res = await apiFetch(url);
+    if (!res.ok) throw new Error(res.status);
+    try { return await res.json(); } catch { return null; }
   }
-  function passesSearch(log) {
-    const q = (searchEl?.value || '').trim().toLowerCase();
-    return !q || actorName(log).toLowerCase().includes(q);
+  function unwrap(listish){
+    if (!listish) return [];
+    if (Array.isArray(listish)) return listish;
+    if (Array.isArray(listish.results)) return listish.results;
+    if (Array.isArray(listish.items))   return listish.items;
+    if (listish.data) return unwrap(listish.data);
+    return [];
+  }
+  function userLabel(u){
+    return u.username ?? u.login ?? u.email ?? u.name ?? u.user?.username ?? `user#${u.id ?? u.pk ?? u.user_id ?? ''}`;
+  }
+  function userId(u){
+    return u.id ?? u.pk ?? u.user_id ?? u.user?.id;
   }
 
-  function getOpenSet() {
-    const s = new Set();
-    tbody.querySelectorAll('details[open][data-log-id]').forEach(d => {
-      const id = d.getAttribute('data-log-id'); if (id) s.add(id);
-    });
-    return s;
-  }
-  function restoreOpen(s) {
-    tbody.querySelectorAll('details[data-log-id]').forEach(d => {
-      const id = d.getAttribute('data-log-id'); if (id && s.has(id)) d.setAttribute('open','');
-    });
-  }
-
-  function render() {
-    if (section.style.display === 'none') return;
-    const open = getOpenSet();
-    const list = rawData.filter(passesFilter).filter(passesSearch);
-    tbody.innerHTML = list.length ? list.map(rowHtml).join('') :
-      `<tr><td colspan="7" class="text-center text-body-secondary">Нет записей</td></tr>`;
-    restoreOpen(open);
-  }
-
-  async function fetchLogs() {
+  let users = [];
+  for (const ep of ["/admin/users/?limit=1000", "/users/?limit=1000", "/auth/users/?limit=1000"]) {
     try {
-      const res = await apiFetch(`/admin/audit_logs/?limit=20&ordering=-action_time`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const hash = JSON.stringify(data.map(x => [x.id, x.action_time, x.action, x.actor_label, x.user]));
-      if (hash === lastHash) { refreshTimes(); return; }
-      lastHash = hash;
-      rawData = data;
-      render();
-    } catch(_) {}
+      users = unwrap(await getJSON(ep));
+      if (users.length) break;
+    } catch (_) {}
+  }
+  if (users.length) {
+    userSel.innerHTML = users.map(u => {
+      const id = userId(u); if (!id) return "";
+      return `<option value="${id}">${userLabel(u)}</option>`;
+    }).join("");
+    document.dispatchEvent(new CustomEvent("users-loaded"));
+  } else {
+    userSel.innerHTML = `<option disabled>Пользователей нет</option>`;
   }
 
-  function refreshTimes() {
-    tbody.querySelectorAll('tr').forEach(tr => {
-      const exact = tr.children[1], when = tr.children[0];
-      if (!exact || !when) return;
-      const txt = exact.textContent.trim();
-      const [date,time] = txt.split(' ');
-      if (!date || !time) return;
-      const [d,m,y] = date.split('.').map(Number);
-      const [hh,mm,ss] = time.split(':').map(Number);
-      const iso = new Date(y, m-1, d, hh, mm, ss).toISOString();
-      when.textContent = ago(iso);
-    });
-  }
-
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchLogs(); });
-  filterEl?.addEventListener('change', render);
-  searchEl?.addEventListener('input', () => { clearTimeout(render._t); render._t = setTimeout(render, 150); });
-
-  fetchLogs();
-  setInterval(() => { if (!document.hidden && !section.hidden && section.style.display !== 'none') fetchLogs(); }, intervalMs);
+  try {
+    const rolesRaw = await getJSON("/admin/roles/?limit=1000");
+    const roles = unwrap(rolesRaw);
+    if (roles.length) {
+      roleSel.innerHTML = ['<option value="">-- Выбери роль --</option>']
+        .concat(roles.map(r => `<option value="${r.id}">${r.name ?? ('role#'+r.id)}</option>`))
+        .join('');
+    }
+  } catch (_) {}
 })();
 </script>
 
+<!-- Пагинация аудит-логов -->
 <script>
-(function () {
-  const section = document.getElementById('auditSection');
-  const btn     = document.getElementById('auditToggleBtn');
-  if (!section || !btn) return;
+(function(){
+  let isLoading = false;
+  const section   = document.getElementById('auditSection');
+  const tbody     = document.getElementById('auditBody');
+  const pager     = document.getElementById('auditPager');
+  const pageInfo  = document.getElementById('auditPageInfo');
+  const prevBtn   = document.getElementById('auditPrev');
+  const nextBtn   = document.getElementById('auditNext');
+  const filterEl  = document.getElementById('actorFilter');
+  const searchEl  = document.getElementById('actorSearch');
+  const toggleBtn = document.getElementById('auditToggleBtn');
+  if(!section||!tbody||!pager) return;
 
-  const LS_KEY = 'audit_logs_hidden';
+  const PAGE_SIZE=30;
+  let page=Math.max(1,Number(localStorage.getItem('audit_page')||'1'));
+  let total=null, dataPage=[], allCache=null, useClientSlice=false;
 
-  function setHidden(hidden) {
-    section.hidden = !!hidden;
-    btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-    btn.innerHTML = (hidden ? 'Показать' : 'Скрыть') + ' логи <span class="text-body-secondary small">(Alt+V)</span>';
-    localStorage.setItem(LS_KEY, hidden ? '1' : '0');
+  const pad=n=>String(n).padStart(2,'0');
+  const fmtDate=iso=>{const d=new Date(iso); return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;};
+  const ago=iso=>{const s=Math.max(1,Math.floor((Date.now()-new Date(iso).getTime())/1000)); if(s<60)return `${s} с назад`; const m=Math.floor(s/60); if(m<60)return `${m} мин назад`; const h=Math.floor(m/60); if(h<24)return `${h} ч назад`; const d=Math.floor(h/24); return `${d} д назад`;};
+  const badge=a=>a==='CREATE'||a==='POST'?'<span class="badge bg-success">POST</span>':a==='UPDATE'||a==='PUT'?'<span class="badge bg-warning text-dark">PUT</span>':a==='DELETE'?'<span class="badge bg-danger">DELETE</span>':`<span class="badge bg-secondary">${a}</span>`;
+
+  const actorName = l =>
+    l.actor_label || l.user_username || l.user?.username || l.actor || l.username || 'система';
+
+  const hasUser = l => !!(l.user_username || l.user?.username || Number.isFinite(l.user) || l.user_id);
+  const isAdmin = l => String(l.actor_label || l.actor || '').toLowerCase().startsWith('admin');
+  const isNone  = l => !hasUser(l) && !isAdmin(l);
+
+  document.addEventListener('auditlog-reload', () => { page = 1; load(); });
+
+  function applyFilter(list){
+    const q=(searchEl?.value||'').trim().toLowerCase();
+    const mode=filterEl?.value||'all';
+    const passMode = l =>
+      mode==='admin' ? isAdmin(l) :
+      mode==='users' ? (hasUser(l) && !isAdmin(l)) :
+      mode==='none'  ? isNone(l) :
+      true;
+    return list.filter(passMode).filter(l => !q || actorName(l).toLowerCase().includes(q));
   }
 
-  setHidden(localStorage.getItem(LS_KEY) === '1');
+  function render(){
+    const list=applyFilter(dataPage);
+    tbody.innerHTML=list.length?list.map(l=>`
+      <tr>
+        <td>${ago(l.action_time)}</td>
+        <td>${fmtDate(l.action_time)}</td>
+        <td>${actorName(l)}</td>
+        <td>${badge(l.action)}</td>
+        <td>${l.table_name??''}</td>
+        <td>${l.record_id??''}</td>
+        <td>${
+          (l.action==='UPDATE'||l.action==='PUT')
+            ? `<details><summary>Посмотреть</summary>
+                 <div><b>Старое:</b> ${typeof l.old_data==='object'?JSON.stringify(l.old_data):(l.old_data??'')}</div>
+                 <div><b>Новое:</b> ${typeof l.new_data==='object'?JSON.stringify(l.new_data):(l.new_data??'')}</div>
+               </details>`
+            : (l.action==='CREATE'||l.action==='POST')?'<span class="text-success">Создано</span>'
+            : (l.action==='DELETE')?'<span class="text-danger">Удалено</span>' : ''
+        }</td>
+      </tr>`).join(''):`<tr><td colspan="7" class="text-center text-body-secondary">Нет записей</td></tr>`;
 
-  btn.addEventListener('click', () => setHidden(!section.hidden));
+    pager.hidden=false;
+    const start=list.length?((page-1)*PAGE_SIZE+1):0;
+    const end=(page-1)*PAGE_SIZE+list.length;
+    const pages=Number.isFinite(total)?Math.max(1,Math.ceil(total/PAGE_SIZE)):null;
 
-  document.addEventListener('keydown', (e) => {
-    const tag = (document.activeElement?.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select' || document.activeElement?.isContentEditable) return;
-    if (e.altKey && !e.ctrlKey && e.code === 'KeyV') {
-      e.preventDefault();
-      btn.click();
-    }
-  });
-})();
-</script>
+    pageInfo.textContent=Number.isFinite(total)?`Показано ${start}–${end} из ${total} | Стр. ${page}${pages?` из ${pages}`:''}`:`Стр. ${page} (по ${PAGE_SIZE})`;
+    if(useClientSlice && Number.isFinite(total)){ prevBtn.disabled=page<=1; nextBtn.disabled=page>=pages; }
+    else { prevBtn.disabled=page<=1; nextBtn.disabled=dataPage.length<PAGE_SIZE || (Number.isFinite(total)&&end>=total); }
+  }
 
-<script>
-(function () {
-  const API = {
-    list:     () => apiFetch("/backups/"),
-    create:   () => apiFetch("/backups/", { method: "POST" }),
-    download: (id) => apiFetch(`/backups/${id}/download/`),
-  };
+  async function fetchServerPage(offset){
+    const res=await apiFetch(`/admin/audit_logs/?limit=${PAGE_SIZE}&offset=${offset}&ordering=-action_time`);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return res.json();
+  }
 
-  const $ = (sel) => document.querySelector(sel);
-  const body = $("#backupsBody");
-  const btnNow = $("#btnBackupNow");
-  const btnReload = $("#btnBackupsReload");
-  const section = $("#backupsSection");
-  const toggleBtn = $("#backupsToggleBtn");
+  async function load(){
+    if (isLoading) return;
+    isLoading = true;
 
-  const pad = (n) => String(n).padStart(2, "0");
-  const fmtWhen = (iso) => {
-    try {
-      const d = new Date(iso);
-      return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    } catch (_) { return iso || "—"; }
-  };
-  const fmtSize = (n) => {
-    const b = Number(n||0);
-    if (b >= 1024*1024*1024) return (b/1073741824).toFixed(2)+" ГБ";
-    if (b >= 1024*1024)     return (b/1048576).toFixed(2)+" МБ";
-    if (b >= 1024)          return (b/1024).toFixed(1)+" КБ";
-    return b+" Б";
-  };
-
-  async function loadBackups() {
-    body.innerHTML = `<tr><td colspan="6" class="text-center text-body-secondary">Загружаю…</td></tr>`;
-    try {
-      const res = await API.list();
-      const data = await res.json();
-      const items = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
-      if (!items.length) {
-        body.innerHTML = `<tr><td colspan="6" class="text-center text-body-secondary">Бэкапов пока нет</td></tr>`;
-        return;
+    const offset=(page-1)*PAGE_SIZE;
+    try{
+      if(useClientSlice && Array.isArray(allCache)){
+        dataPage = allCache.slice(offset, offset+PAGE_SIZE);
+        render();
+      } else {
+        const json = await fetchServerPage(offset);
+        if (Array.isArray(json)){
+          allCache = json;
+          total = json.length;
+          useClientSlice = true;
+          dataPage = json.slice(offset, offset+PAGE_SIZE);
+        } else {
+          const results = Array.isArray(json.results) ? json.results : [];
+          total = Number.isFinite(json.count) ? json.count : null;
+          useClientSlice = false;
+          dataPage = results;
+        }
+        render();
       }
-      body.innerHTML = items.map(it => {
-        const sha = (it.checksum_sha256 || "").slice(0, 12);
-        const st = String(it.status || "").toLowerCase();
-        const badge = st === "success" ? "success" : (st === "pending" ? "secondary" : "danger");
-        const fn = `backup_${it.id || ""}.sql.gz`;
-        const disabled = st !== "success" ? "disabled" : "";
+    } catch(e){
+      console.error('auditlog load error:', e);
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  // автообновление каждые 5 секунд при видимой вкладке и секции
+  setInterval(() => {
+    if (document.hidden || section.hidden) return;
+    load();
+  }, 5000);
+
+  prevBtn?.addEventListener('click',()=>{ if(page>1){ page--; localStorage.setItem('audit_page',String(page)); load(); }});
+  nextBtn?.addEventListener('click',()=>{
+    const pages=Number.isFinite(total)?Math.max(1,Math.ceil(total/PAGE_SIZE)):null;
+    const canNext=useClientSlice?(pages?page<pages:dataPage.length===PAGE_SIZE)
+                                :(dataPage.length===PAGE_SIZE || (Number.isFinite(total)&& (page-1)*PAGE_SIZE+dataPage.length<total));
+    if(canNext){ page++; localStorage.setItem('audit_page',String(page)); load(); }
+  });
+
+  filterEl?.addEventListener('change', render);
+  let t; searchEl?.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(render,150); });
+
+  function setHidden(hidden){
+    section.hidden=!!hidden;
+    toggleBtn?.setAttribute('aria-expanded',hidden?'false':'true');
+    toggleBtn&&(toggleBtn.innerHTML=(hidden?'Показать':'Скрыть')+' логи <span class="text-body-secondary small">(Alt+V)</span>');
+    localStorage.setItem('audit_logs_hidden', hidden?'1':'0');
+  }
+  setHidden(localStorage.getItem('audit_logs_hidden')==='1');
+  toggleBtn?.addEventListener('click',()=>setHidden(!section.hidden));
+  document.addEventListener('keydown',(e)=>{
+    const tag=(document.activeElement?.tagName||'').toLowerCase();
+    if(['input','textarea','select'].includes(tag) || document.activeElement?.isContentEditable) return;
+    if(e.altKey && !e.ctrlKey && e.code==='KeyV'){ e.preventDefault(); toggleBtn?.click(); }
+  });
+
+  load();
+})();
+</script>
+
+<!-- Бэкапы -->
+<script>
+(function(){
+  const API={
+    list:    () => apiFetch("/backups/"),
+    create:  () => apiFetch("/backups/",{method:"POST"}),
+    detail:  (id) => apiFetch(`/backups/${id}/`),
+    delete:  (id) => apiFetch(`/backups/${id}/`, {method:"DELETE"}),
+    download:(id) => apiFetch(`/backups/${id}/download/`)
+  };
+  const $=sel=>document.querySelector(sel);
+  const body=$("#backupsBody"), btnNow=$("#btnBackupNow"), btnReload=$("#btnBackupsReload"), section=$("#backupsSection"), toggleBtn=$("#backupsToggleBtn");
+
+  const pad=n=>String(n).padStart(2,"0");
+  const fmtWhen=iso=>{ try{const d=new Date(iso); return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;}catch{ return iso||"—";}};
+  const fmtSize=n=>{const b=Number(n||0); if(b>=1073741824) return (b/1073741824).toFixed(2)+" ГБ"; if(b>=1048576) return (b/1048576).toFixed(2)+" МБ"; if(b>=1024) return (b/1024).toFixed(1)+" КБ"; return b+" Б";};
+
+  async function loadBackups(){
+    body.innerHTML=`<tr><td colspan="6" class="text-center text-body-secondary">Загружаю…</td></tr>`;
+    try{
+      const res=await API.list(); const data=await res.json();
+      const items=Array.isArray(data)?data:(Array.isArray(data.results)?data.results:[]);
+      if(!items.length){ body.innerHTML=`<tr><td colspan="6" class="text-center text-body-secondary">Бэкапов пока нет</td></tr>`; return; }
+      body.innerHTML=items.map(it=>{
+        const id=it.id;
+        const sha=(it.checksum_sha256||"").slice(0,12);
+        const st=String(it.status||"").toLowerCase();
+        const badge=st==="success"?"success":(st==="pending"?"secondary":"danger");
+        const fn=`backup_${id||""}.sql.gz`;
+        const dlDisabled=st!=="success"?"disabled":"";
         return `<tr>
-          <td>${it.id}</td>
+          <td>${id}</td>
           <td>${fmtWhen(it.created_at)}</td>
           <td>${fmtSize(it.file_size)}</td>
-          <td><code title="${it.checksum_sha256 || ''}">${sha || "—"}</code></td>
-          <td><span class="badge bg-${badge}">${st}</span></td>
+          <td><code title="${it.checksum_sha256||''}">${sha||"—"}</code></td>
+          <td><span class="badge bg-${badge}">${st||"—"}</span></td>
           <td class="text-end">
-            <button class="btn btn-sm btn-outline-primary" data-dl="${it.id}" data-fn="${fn}" ${disabled}>Скачать</button>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-primary" data-dl="${id}" data-fn="${fn}" ${dlDisabled}>Скачать</button>
+              <button class="btn btn-outline-danger" data-del="${id}">Удалить</button>
+            </div>
           </td>
         </tr>`;
       }).join("");
-    } catch (e) {
-      body.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Ошибка загрузки списка</td></tr>`;
+    }catch{ body.innerHTML=`<tr><td colspan="6" class="text-center text-danger">Ошибка загрузки списка</td></tr>`; }
+  }
+
+  async function downloadBackup(id,filename){
+    const res=await API.download(id);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const blob=await res.blob();
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=filename||("backup_"+id+".sql.gz");
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  }
+
+  async function deleteBackup(id){
+    if(!confirm(`Удалить бэкап #${id}? Это действие необратимо.`)) return;
+    const delBtn = body.querySelector(`button[data-del="${id}"]`);
+    const oldTxt = delBtn?.textContent;
+    try{
+      if(delBtn){ delBtn.disabled = true; delBtn.textContent = "Удаляю…"; }
+      const res=await API.delete(id);
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      await loadBackups();
+    }catch(e){
+      alert("Не удалось удалить бэкап: "+String(e));
+    }finally{
+      if(delBtn){ delBtn.disabled=false; delBtn.textContent = oldTxt || "Удалить"; }
     }
   }
 
-  async function downloadBackup(id, filename) {
-    try {
-      const res = await API.download(id);
-      if (!res.ok) throw new Error("HTTP "+res.status);
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename || ("backup_"+id+".sql.gz");
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    } catch (e) {
-      alert("Не удалось скачать бэкап: "+String(e));
+  // Ожидание готовности бэкапа (poll)
+  async function pollUntilReady(id, {interval=2000, timeout=60000} = {}){
+    const start = Date.now();
+    while (Date.now() - start < timeout){
+      const res = await API.detail(id);
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      const data = await res.json().catch(()=>({}));
+      const st = String(data.status||"").toLowerCase();
+      if(st === "success") return data;
+      if(st === "failed" || st === "error") throw new Error(data.error || "Бэкап завершился с ошибкой");
+      await new Promise(r=>setTimeout(r, interval));
     }
+    throw new Error("Таймаут ожидания готовности бэкапа");
   }
 
-  async function createBackup() {
-    btnNow.disabled = true;
-    const old = btnNow.textContent;
-    btnNow.textContent = "Делаю бэкап…";
-    try {
-      const res = await API.create();
-      const data = await res.json().catch(()=> ({}));
-      if (res.ok && (data.status || "").toLowerCase() === "success") {
-        await loadBackups();
-      } else {
-        const msg = data.detail || data.log || JSON.stringify(data);
-        alert("Не удалось сделать бэкап: "+msg);
+  async function createBackup(){
+    btnNow.disabled=true; const old=btnNow.textContent; btnNow.textContent="Делаю бэкап…";
+    try{
+      const res=await API.create();
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){
+        const msg=data.detail||data.log||JSON.stringify(data)||("HTTP "+res.status);
+        throw new Error(msg);
       }
-    } catch (e) {
-      alert("Ошибка запроса: "+String(e));
-    } finally {
-      btnNow.disabled = false;
-      btnNow.textContent = old;
+
+      const id = data.id ?? data.pk ?? data.backup_id;
+      let st = String(data.status||"").toLowerCase();
+
+      // Если бэкап ещё в обработке — ждём готовности
+      if(st !== "success"){
+        await pollUntilReady(id, {interval:2000, timeout:120000});
+      }
+
+      // Обновим список и автоматически скачаем свежий бэкап
+      await loadBackups();
+      try{
+        await downloadBackup(id, `backup_${id}.sql.gz`);
+      }catch(dlErr){
+        console.warn("Не удалось автоматически скачать бэкап:", dlErr);
+        alert("Бэкап готов, но скачать автоматически не вышло. Скачай вручную из списка.");
+      }
+    }catch(e){
+      alert("Не удалось сделать бэкап: "+String(e));
+    }finally{
+      btnNow.disabled=false; btnNow.textContent=old;
     }
   }
 
-  const LS_KEY = "backups_table_hidden";
-  function setHidden(hidden) {
-    section.hidden = !!hidden;
-    toggleBtn.textContent = (hidden ? "Показать бэкапы" : "Скрыть бэкапы");
-    toggleBtn.insertAdjacentHTML("beforeend", ' <small class="text-body-secondary">(Alt+K)</small>');
-    localStorage.setItem(LS_KEY, hidden ? "1" : "0");
+  const LS_KEY="backups_table_hidden";
+  function setHidden(hidden){
+    section.hidden=!!hidden;
+    toggleBtn.textContent=hidden?"Показать бэкапы":"Скрыть бэкапы";
+    toggleBtn.insertAdjacentHTML("beforeend",' <small class="text-body-secondary">(Alt+K)</small>');
+    localStorage.setItem(LS_KEY, hidden?"1":"0");
   }
-  setHidden(localStorage.getItem(LS_KEY) === "1");
-  toggleBtn?.addEventListener("click", () => setHidden(!section.hidden));
-  document.addEventListener("keydown", (e) => {
-    const tag = (document.activeElement?.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea" || tag === "select" || document.activeElement?.isContentEditable) return;
-    if (e.altKey && !e.ctrlKey && !e.shiftKey && e.code === "KeyK") {
-      e.preventDefault();
-      toggleBtn?.click();
-    }
+  setHidden(localStorage.getItem(LS_KEY)==="1");
+  toggleBtn?.addEventListener("click",()=>setHidden(!section.hidden));
+  document.addEventListener("keydown",(e)=>{
+    const tag=(document.activeElement?.tagName||"").toLowerCase();
+    if(['input','textarea','select'].includes(tag) || document.activeElement?.isContentEditable) return;
+    if(e.altKey && !e.ctrlKey && !e.shiftKey && e.code==="KeyK"){ e.preventDefault(); toggleBtn?.click(); }
   });
 
-  body.addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-dl]");
-    if (btn) downloadBackup(btn.getAttribute("data-dl"), btn.getAttribute("data-fn"));
+  body.addEventListener("click",(e)=>{
+    const dl=e.target.closest("button[data-dl]");
+    if(dl){ downloadBackup(dl.getAttribute("data-dl"), dl.getAttribute("data-fn")).catch(err=>alert("Не удалось скачать: "+String(err))); return; }
+    const del=e.target.closest("button[data-del]");
+    if(del){ deleteBackup(del.getAttribute("data-del")); return; }
   });
 
-  btnNow?.addEventListener("click", createBackup);
-  btnReload?.addEventListener("click", loadBackups);
-
+  btnNow?.addEventListener("click",createBackup);
+  btnReload?.addEventListener("click",loadBackups);
   loadBackups();
 })();
 </script>

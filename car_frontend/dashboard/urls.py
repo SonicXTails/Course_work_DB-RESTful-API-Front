@@ -6,6 +6,7 @@ from .views.cars import car_detail, car_reserve
 from .views.orders import orders_view, order_confirm, order_seller_cancel, order_buyer_cancel
 from .views.admin import admin_dashboard_view, make_bulk_reprice
 from .views.analyst import analyst_profile_view
+from .views.receipt import receipt_page, receipt_pdf
 
 urlpatterns = [
     path('auth/', auth_view, name='auth'),
@@ -21,4 +22,6 @@ urlpatterns = [
     path('analyst/', analyst_profile_view, name='profile_analitic'),
     path('dashboard/admin/', admin_dashboard_view, name='admin_dashboard'),
     path("orders/<int:order_id>/buyer_cancel/", order_buyer_cancel, name="order_buyer_cancel"),
+    path("receipt/<int:tx_id>/", receipt_page, name="receipt_page"),
+    path("receipt/<int:tx_id>/pdf/", receipt_pdf, name="receipt_pdf"),
 ]

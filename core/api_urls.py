@@ -6,7 +6,7 @@ from .views import (
     UserViewSet, RoleViewSet, UserRoleViewSet,
     MakeViewSet, VehicleModelViewSet, CarViewSet, CarImageViewSet,
     OrderViewSet, TransactionViewSet, ReviewViewSet,
-    AuditLogViewSet, AuditLogAdminViewSet, RegisterViewSet,
+    AuditLogViewSet, AuditLogAdminViewSet, RegisterViewSet, FavoriteViewSet
 )
 from .viewsets import BackupViewSet
 from car_frontend.dashboard import views as front
@@ -25,6 +25,7 @@ root.register(r'transactions', TransactionViewSet, basename='transaction')
 root.register(r'reviews', ReviewViewSet, basename='review')
 root.register(r'audit_logs', AuditLogViewSet, basename='auditlog')
 root.register(r'backups', BackupViewSet, basename='backup')
+root.register(r'favorites', FavoriteViewSet, basename='favorite')
 
 public = DefaultRouter()
 public.register(r'cars', CarViewSet, basename='car-public')

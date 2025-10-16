@@ -34,7 +34,6 @@ def make_json_safe(data: dict) -> dict:
             safe_data[k] = v
     return safe_data
 
-# --- Кешируем старые данные перед обновлением ---
 @receiver(pre_save)
 def cache_old_instance(sender, instance, **kwargs):
     if sender in WATCHED_MODELS and instance.pk:
@@ -43,7 +42,6 @@ def cache_old_instance(sender, instance, **kwargs):
         except sender.DoesNotExist:
             instance._old_data = None
 
-# --- CREATE и UPDATE ---
 @receiver(post_save)
 def log_create_update(sender, instance, created, **kwargs):
     if sender in WATCHED_MODELS:
@@ -64,7 +62,6 @@ def log_create_update(sender, instance, created, **kwargs):
             new_data=new_data
         )
 
-# --- DELETE ---
 @receiver(post_delete)
 def log_delete(sender, instance, **kwargs):
     if sender in WATCHED_MODELS:

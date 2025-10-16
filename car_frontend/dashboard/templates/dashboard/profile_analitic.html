@@ -1,9 +1,9 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
-{% block title %}Аналитика (P2P){% endblock %}
+{% block title %}Аналитика{% endblock %}
 
 {% block content %}
-<div class="container py-5" style="max-width: 1240px;">
+<div class="container py-5" style="max-width: 1440px;">
   <h2 class="mb-4">Аналитика маркетплейса</h2>
 
   <!-- ФИЛЬТРЫ -->
@@ -47,19 +47,20 @@
           </div>
         </div>
 
-        <div class="col-12 d-flex gap-2 mt-2">
+        <div class="col-12 d-flex gap-2 mt-2 align-items-center flex-wrap">
           <button id="btnApply" class="btn btn-primary">Применить</button>
           <button id="btnReset" class="btn btn-outline-secondary">Сбросить</button>
           <div class="ms-auto d-flex gap-2">
-            <button id="btnExportCsv" class="btn btn-success">Экспорт CSV</button>
-            <button id="btnSavePngAll" class="btn btn-outline-light">Сохранить графики PNG</button>
+            <button id="btnExportCsv" class="btn btn-success">CSV (3 отчёта)</button>
+            <button id="btnExportPdf" class="btn btn-warning">PDF-отчёт</button>
+            <button id="btnSaveAllPng" class="btn btn-outline-light">PNG всех графиков</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- KPI (контрастные карточки) -->
+  <!-- KPI -->
   <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
       <div class="card kpi-card shadow-sm border-0">
@@ -105,471 +106,444 @@
 
   <!-- ГРАФИКИ -->
   <div class="row g-4">
-    <div class="col-12 col-lg-6">
-      <div class="card border-0 shadow-sm" style="background:#1f2a36;color:#e9ecef;">
-        <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
-          <strong>Дни до продажи (распределение)</strong>
+    <div class="col-12 col-xl-6">
+      <div class="card border-0 shadow-sm chart-card h-100">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Продажи по дням (шт.)</strong>
+          <div class="d-flex gap-2">
+            <button data-dl="#chartSalesByDay" class="btn btn-sm btn-outline-light dl-one">PNG</button>
+            <button data-fs="#cardSalesByDay" class="btn btn-sm btn-outline-light fs-one">⤢</button>
+          </div>
         </div>
-        <div class="card-body">
-          <canvas id="chartDaysToSell"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-12 col-lg-6">
-      <div class="card border-0 shadow-sm" style="background:#1f2a36;color:#e9ecef;">
-        <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
-          <strong>Продажи по маркам (шт.)</strong>
-        </div>
-        <div class="card-body">
-          <canvas id="chartByMake"></canvas>
+        <div id="cardSalesByDay" class="card-body chart-body chart-body-lg">
+          <canvas id="chartSalesByDay"></canvas>
         </div>
       </div>
     </div>
-    <div class="col-12">
-      <div class="card border-0 shadow-sm" style="background:#1f2a36;color:#e9ecef;">
-        <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
-          <strong>Воронка статусов</strong>
-        </div>
-        <div class="card-body">
-          <canvas id="chartFunnel"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ТОП ПРОДАВЦОВ -->
-  <div class="card border-0 shadow-sm mt-4" style="background:#1f2a36;color:#e9ecef;">
-    <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
-      <strong>Топ продавцов (по выбранным фильтрам)</strong>
+    <div class="col-12 col-xl-6">
+      <div class="card border-0 shadow-sm chart-card h-100">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Средняя цена по маркам (₽)</strong>
+          <div class="d-flex gap-2">
+            <button data-dl="#chartAvgPriceByMake" class="btn btn-sm btn-outline-light dl-one">PNG</button>
+            <button data-fs="#cardAvgPriceByMake" class="btn btn-sm btn-outline-light fs-one">⤢</button>
+          </div>
+        </div>
+        <div id="cardAvgPriceByMake" class="card-body chart-body chart-body-lg">
+          <canvas id="chartAvgPriceByMake"></canvas>
+        </div>
+      </div>
     </div>
-    <div class="card-body table-responsive">
-      <table class="table table-sm align-middle mb-0" style="color:#e9ecef;">
-        <thead>
-          <tr class="text-soft">
-            <th>Продавец</th>
-            <th>Продано, шт.</th>
-            <th>GMV, ₽</th>
-            <th>Средний чек, ₽</th>
-          </tr>
-        </thead>
-        <tbody id="tblTopSellers">
-          <tr><td colspan="4" class="text-secondary">Нет данных</td></tr>
-        </tbody>
-      </table>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm chart-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Статусы объявлений</strong>
+          <div class="d-flex gap-2">
+            <button data-dl="#chartInventoryStatuses" class="btn btn-sm btn-outline-light dl-one">PNG</button>
+            <button data-fs="#cardInventoryStatuses" class="btn btn-sm btn-outline-light fs-one">⤢</button>
+          </div>
+        </div>
+        <div id="cardInventoryStatuses" class="card-body chart-body chart-body-xl">
+          <canvas id="chartInventoryStatuses"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- html2pdf (jspdf + html2canvas bundled) -->
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 
 <style>
   .text-soft { color:#aebacf!important; }
-
-  /* KPI — контрастные карточки */
-  .kpi-card{
-    background:#1b2632;               /* на тон светлее основной карты */
-    border:1px solid #2b3a4a;
-    border-radius:.85rem;
-  }
+  .chart-card { background:#1f2a36;color:#e9ecef; }
+  .chart-card .card-header { background:#243141;border-bottom:1px solid #2f3c4e; }
+  .kpi-card{ background:#1b2632; border:1px solid #2b3a4a; border-radius:.85rem; }
   .kpi-card .card-body{ padding:1rem 1.25rem; }
-  .kpi-label{
-    color:#aebacf;
-    font-size:.875rem;
-    letter-spacing:.02em;
+  .kpi-label{ color:#aebacf; font-size:.875rem; letter-spacing:.02em; }
+  .kpi-value{ color:#f3f7ff; font-weight:800; font-size:2rem; line-height:1.1; text-shadow:0 1px 0 rgba(0,0,0,.25); }
+  .kpi-card:hover{ border-color:#3b5066; box-shadow:0 8px 22px rgba(0,0,0,.28); }
+
+  .chart-body { position: relative; }
+  .chart-body-lg { height: 520px; }
+  .chart-body-xl { height: 640px; }
+
+  @media (max-width: 1199.98px){
+    .chart-body-lg { height: 460px; }
+    .chart-body-xl { height: 560px; }
   }
-  .kpi-value{
-    color:#f3f7ff;
-    font-weight:800;
-    font-size:2rem;
-    line-height:1.1;
-    text-shadow:0 1px 0 rgba(0,0,0,.25);
+  @media (max-width: 767.98px){
+    .chart-body-lg { height: 380px; }
+    .chart-body-xl { height: 480px; }
   }
-  .kpi-card:hover{
-    border-color:#3b5066;
-    box-shadow:0 8px 22px rgba(0,0,0,.28);
-  }
+
+  :fullscreen .chart-body { height: calc(100dvh - 110px) !important; }
+
+  .pdf-wrap { font-family: Inter, Arial, sans-serif; color:#000 !important; }
+  .pdf-header { border-bottom:1px solid #111; padding-bottom:8px; margin-bottom:12px; }
+  .pdf-h1 { margin:0; font-size:26px; color:#000 !important; font-weight:800; }
+  .pdf-meta { font-size:12px; color:#111 !important; }
+  .pdf-grid { display:grid; grid-template-columns: repeat(3,1fr); gap:10px; }
+  .pdf-kpi { background:#f6f8fb; border:1px solid #d8e1ee; border-radius:8px; padding:10px; }
+  .pdf-kpi .lbl { font-size:11px; color:#394b63; }
+  .pdf-kpi .val { font-size:18px; font-weight:700; }
+  .pdf-section-title { font-weight:800; margin:14px 0 8px; font-size:15px; color:#000 !important; }
+  .pagebreak { page-break-after: always; }
+  table.pdf-table { width:100%; border-collapse: collapse; font-size:11px; }
+  table.pdf-table th, table.pdf-table td { border:1px solid #e1e7ef; padding:4px 6px; }
+  table.pdf-table th { background:#eef3f9; text-align:left; }
+  .pdf-chart { width:100%; border:1px solid #e1e7ef; border-radius:6px; }
+  .pdf-title { display:flex; flex-direction:column; min-height: 260mm; padding: 30mm 20mm 20mm 20mm; }
+  .pdf-title .big { font-size:36px; font-weight:900; margin-bottom:8mm; color:#000 !important; }
+  .pdf-title .muted { color:#000 !important; font-size:14px; }
+  .pdf-flex { display:flex; gap:10px; }
+  .pdf-col { flex:1; }
+  .pdf-small { font-size:11px; color:#111 !important;}
+  .pdf-footer-note { margin-top:6mm; font-size:10px; color:#222 !important; }
+  .figcaption { font-size:11px; color:#000 !important; text-align:center; margin:4px 0 8px; }
 </style>
 
 <script>
 (function(){
   const API   = "http://127.0.0.1:8000/api/v1";
   const TOKEN = "{{ request.session.api_token|default:'' }}";
-  const HJSON = { "Authorization": "Token " + TOKEN };
+  if(!TOKEN){ alert("Нужно войти"); return; }
+  const H = { "Authorization":"Token "+TOKEN };
 
-  const fFrom = document.getElementById('fFrom');
-  const fTo   = document.getElementById('fTo');
-  const fMake = document.getElementById('fMake');
-  const fMin  = document.getElementById('fPriceMin');
-  const fMax  = document.getElementById('fPriceMax');
-  const fScope= document.getElementById('fScope');
-  const fSeller = document.getElementById('fSeller');
-  const btnApply = document.getElementById('btnApply');
-  const btnReset = document.getElementById('btnReset');
-  const btnCsv   = document.getElementById('btnExportCsv');
-  const btnPng   = document.getElementById('btnSavePngAll');
+  const $ = (sel) => document.querySelector(sel);
+  const CHARTS = {};
+  const axisColor='#c8d3e0', gridColor='rgba(255,255,255,.08)', borderColor='#2f3c4e';
+  const palette = ['#4e79a7','#f28e2c','#e15759','#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac'];
 
-  const kActive = document.getElementById('kpiActive');
-  const kRes    = document.getElementById('kpiReserved');
-  const kSold   = document.getElementById('kpiSold');
-  const kGMV    = document.getElementById('kpiGMV');
-  const kMed    = document.getElementById('kpiMedianDays');
+  function parseTs(...keys){ return obj=>{ for(const k of keys){ const v=obj?.[k]; const t=v?Date.parse(v):NaN; if(!Number.isNaN(t)) return t; } return NaN; }; }
+  const tsCar=parseTs('created_at','createdAt','created');
+  const tsOrder=parseTs('order_date','created_at','createdAt','created');
+  const tsTx=parseTs('transaction_date','paid_at','created_at','createdAt','date');
+  function normalizeOrderId(val){ if(typeof val==='number') return val; if(typeof val==='string'){ const m=val.match(/(\\d+)/g); return m?Number(m[m.length-1]):NaN; } if(val&&typeof val==='object') return Number(val.id??val.pk??NaN); return NaN; }
+  function orderCarKey(order){ const c=order?.car; if(c==null) return ''; if(typeof c==='object') return String(c.VIN||c.vin||c.id||c.pk||''); return String(c); }
+  function fmtMoney(n){ return (Math.round(n||0)).toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g,' '); }
+  async function get(url){ const r = await fetch(url,{headers:H}); if(!r.ok) return null; try { return await r.json(); } catch { return null; } }
+  function unwrap(listish){ if(!listish) return []; if(Array.isArray(listish)) return listish; if(Array.isArray(listish.results)) return listish.results; if(Array.isArray(listish.items)) return listish.items; if(listish.data) return unwrap(listish.data); return []; }
+  function setDefaultDates(){ const today=new Date(), from=new Date(today.getTime()-29*24*3600*1000); $('#fFrom').value=from.toISOString().slice(0,10); $('#fTo').value=today.toISOString().slice(0,10); }
+  function optionsXY(){ return {responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:axisColor}, grid:{color:gridColor, borderColor}}, y:{beginAtZero:true, ticks:{color:axisColor}, grid:{color:gridColor, borderColor}}}}; }
+  function optionsPie(){ return {responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:axisColor}}}}; }
+  function ensureChart(sel,type,data,opts){ const c=$(sel); if(CHARTS[sel]) CHARTS[sel].destroy(); CHARTS[sel]=new Chart(c,{type,data,options:opts}); return CHARTS[sel]; }
+  function downloadCanvasPNG(selector){ const el=$(selector); const a=document.createElement('a'); a.href=el.toDataURL('image/png'); a.download=selector.replace('#','')+'.png'; a.click(); }
 
-  let chartDays, chartByMake, chartFunnel;
-  function ensureChart(ctx, type, data, options){
-    if (ctx._chart) ctx._chart.destroy();
-    ctx._chart = new Chart(ctx, {type, data, options});
-    return ctx._chart;
-  }
+  async function bootstrapLoad(){
+    const boot=await get(`${API}/bootstrap/`);
+    const makes=unwrap(boot?.makes); 
+    const cars=unwrap(boot?.cars); 
+    const models=unwrap(boot?.models);
+    const imgs=unwrap(boot?.car_images);
 
-  // Единый тёмный пресет для графиков
-  const axisColor = '#c8d3e0';
-  const gridColor = 'rgba(255,255,255,.08)';
-  const borderColor = '#2f3c4e';
-  function chartOpts(title){
-    return {
-      responsive:true,
-      plugins:{
-        legend:{ display:false },
-        title: title ? {display:true, text:title, color:axisColor} : undefined
-      },
-      scales:{
-        x:{ ticks:{ color:axisColor }, grid:{ color:gridColor, borderColor:borderColor } },
-        y:{ beginAtZero:true, ticks:{ color:axisColor }, grid:{ color:gridColor, borderColor:borderColor } }
+    // === SELLERS ===
+    // a) пытаемся взять готовый список
+    const sellers = unwrap(boot?.sellers);
+    let sellerMap = new Map();
+    if (sellers.length){
+      sellerMap = new Map(sellers.map(s => {
+        const id = String(s.id ?? s.pk);
+        const fio = [s.first_name||'', s.last_name||''].join(' ').trim();
+        const label = (s.username || '').trim() + (fio ? ` — ${fio}` : '');
+        return [id, label || `Пользователь #${id}`];
+      }));
+    } else {
+      // b) fallback из машин: без запроса к /users/
+      const ids = Array.from(new Set(cars.map(c => String(c.seller ?? c.seller_id)).filter(Boolean)));
+      ids.forEach(id => sellerMap.set(id, `Пользователь #${id}`));
+    }
+
+    // дополнительно подменим data-id у опции "me", если backend прислал me.id
+    try{
+      const meId = String(boot?.me?.id || '');
+      if(meId){
+        const meOpt = document.querySelector('#fScope option[value="me"]');
+        if(meOpt) meOpt.dataset.id = meId;
       }
+    }catch(e){}
+
+    return {
+      cars,
+      makeMap:new Map(makes.map(m=>[m.id??m.pk, m.name||m.title||`Марка #${m.id||m.pk}`])),
+      modelsById:new Map(models.map(m=>[m.id??m.pk, m.name||'' ])),
+      sellerMap,
+      images: imgs
     };
   }
+  async function ordersLoad(){ return unwrap(await get(`${API}/orders/?limit=10000`)); }
+  async function txLoad(){ const a=unwrap(await get(`${API}/transactions/?limit=10000`)); const b=unwrap(await get(`${API}/payments/?limit=10000`)); return a.length?a:b; }
 
-  const fmtMoney = (n) => (Math.round(n||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-
-  // загрузка справочников и данных
-  async function fetchAll(){
-    const headers = HJSON;
-    const [makesR, carsR, ordersR, txR] = await Promise.all([
-      fetch(`${API}/makes/`, {headers}),
-      fetch(`${API}/cars/`,  {headers}),
-      fetch(`${API}/orders/`,{headers}),
-      fetch(`${API}/transactions/`, {headers}),
-    ]);
-    const [makes, cars, orders, txs] = await Promise.all([
-      makesR.json(), carsR.json(), ordersR.json(), txR.json()
-    ]);
-
-    const makeMap = new Map(makes.map(m => [m.id, m.name]));
-
-    // имена продавцов — из машин (без вызова /users/)
-    const sellerMap = new Map();
-    cars.forEach(c => {
-      const name = (c.seller_full_name && c.seller_full_name.trim()) ||
-                   [c.seller_first_name||'', c.seller_last_name||''].join(' ').trim() ||
-                   `Пользователь #${c.seller}`;
-      if (c.seller) sellerMap.set(c.seller, name);
-    });
-
-    return {makeMap, cars, orders, txs, sellerMap};
+  function prepareIndices(cars, orders){
+    const carByKey=new Map(); cars.forEach(c=>{ const v=String(c.VIN||c.vin||''); if(v) carByKey.set(v,c); const id=c.id||c.pk; if(id!=null) carByKey.set(String(id),c); });
+    const ordById=new Map(orders.map(o=>[normalizeOrderId(o.id??o), o]));
+    return {carByKey,ordById};
+  }
+  function applyFilters(raw){
+    const fMake=$('#fMake'), fMin=$('#fPriceMin'), fMax=$('#fPriceMax'), fScope=$('#fScope'), fSeller=$('#fSeller'), fFrom=$('#fFrom'), fTo=$('#fTo');
+    const makeId=fMake.value||null, minP=Number(fMin.value||0), maxP=Number(fMax.value||0);
+    const dFrom=fFrom.value?Date.parse(fFrom.value+"T00:00:00"):null; const dTo=fTo.value?Date.parse(fTo.value+"T23:59:59.999"):null;
+    const scope=fScope.value; const sellerId = scope==='seller' ? (fSeller.value||null) : (scope==='me' ? ($('#fScope option[value="me"]').dataset.id||null) : null);
+    const cars=raw.cars.filter(c=>{ if(makeId && String(c.make)!==String(makeId)) return false; const p=Number(c.price||0); if(minP && p<minP) return false; if(maxP && p>maxP) return false; if(sellerId && String(c.seller??c.seller_id)!==String(sellerId)) return false; const t=tsCar(c); if(dFrom && (!t||t<dFrom)) return false; if(dTo && (!t||t>dTo)) return false; return true; });
+    const {carByKey,ordById}=prepareIndices(cars, raw.orders);
+    const orders=raw.orders.filter(o=>{ const k=orderCarKey(o); if(!k||!carByKey.has(k)) return false; const t=tsOrder(o); if(dFrom&&(!t||t<dFrom)) return false; if(dTo&&(!t||t>dTo)) return false; return true; });
+    const valid=new Set(orders.map(o=>normalizeOrderId(o.id??o)));
+    const txs=raw.txs.filter(t=>{ const oid=normalizeOrderId(t.order); if(!valid.has(oid)) return false; const tt=tsTx(t); if(dFrom&&(!tt||tt<dFrom)) return false; if(dTo&&(!tt||tt>dTo)) return false; return true; });
+    return {cars,orders,txs,_idx:{carByKey,ordById}};
   }
 
-  let RAW = null;
-
-  function fillFiltersAux(){
-    fMake.innerHTML = '<option value="">Все</option>' +
-      Array.from(RAW.makeMap).map(([id,name])=>`<option value="${id}">${name}</option>`).join('');
-
-    fSeller.innerHTML = '<option value="">— выберите продавца —</option>' +
-      Array.from(RAW.sellerMap).sort((a,b)=>a[1].localeCompare(b[1])).map(([id,name])=>`<option value="${id}">${name}</option>`).join('');
-
-    // по умолчанию — последние 60 дней
-    const today = new Date();
-    const from  = new Date(today.getTime() - 59*24*3600*1000);
-    fFrom.value = from.toISOString().slice(0,10);
-    fTo.value   = today.toISOString().slice(0,10);
-  }
-
-  function scopeSellerId(){
-    const val = fScope.value;
-    if (val === 'market') return null;
-    if (val === 'seller') return fSeller.value || null;
-    if (val === 'me') {
-      const meId = document.querySelector('#fScope option[value="me"]').dataset.id || '';
-      return meId || null;
-    }
-    return null;
-  }
-
-  fScope.addEventListener('change', () => {
-    const mode = fScope.value;
-    fSeller.disabled = (mode !== 'seller');
-  });
-
-  function applyFilters(){
-    const makeId = fMake.value || null;
-    const minP = Number(fMin.value || 0);
-    const maxP = Number(fMax.value || 0);
-    const dFrom = fFrom.value ? Date.parse(fFrom.value + "T00:00:00") : null;
-    const dTo   = fTo.value   ? Date.parse(fTo.value   + "T23:59:59.999") : null;
-    const sellerId = scopeSellerId();
-
-    const cars = RAW.cars.filter(c => {
-      if (makeId && String(c.make) !== String(makeId)) return false;
-      const price = Number(c.price || 0);
-      if (minP && price < minP) return false;
-      if (maxP && price > maxP) return false;
-      if (sellerId && String(c.seller) !== String(sellerId)) return false;
-
-      if (dFrom || dTo) {
-        const ts = Date.parse(c.created_at || c.createdAt || '');
-        if (dFrom && (!ts || ts < dFrom)) return false;
-        if (dTo && (!ts || ts > dTo)) return false;
-      }
-      return true;
-    });
-
-    const carVINset = new Set(cars.map(c => c.VIN));
-
-    const orders = RAW.orders.filter(o => {
-      if (!carVINset.has(String(o.car))) return false;
-      const ts = Date.parse(o.order_date || o.created_at || '');
-      if (dFrom && (!ts || ts < dFrom)) return false;
-      if (dTo   && (!ts || ts > dTo)) return false;
-      return true;
-    });
-
-    const orderIdSet = new Set(orders.map(o => o.id));
-
-    const txs = RAW.txs.filter(t => {
-      if (!orderIdSet.has(t.order)) return false;
-      const ts = Date.parse(t.transaction_date || t.created_at || '');
-      if (dFrom && (!ts || ts < dFrom)) return false;
-      if (dTo   && (!ts || ts > dTo)) return false;
-      return true;
-    });
-
-    return {cars, orders, txs};
-  }
-
+  const MS_DAY = 24*3600*1000;
+  function daysBetween(tsStart, tsEnd){ if(!Number.isFinite(tsStart)||!Number.isFinite(tsEnd)) return null; const d=(tsEnd-tsStart)/MS_DAY; if(d<0) return null; return Math.ceil(d); }
   function calcKPI(slice){
-    const active = slice.cars.filter(c => c.status === 'available').length;
-    const reserved = slice.cars.filter(c => c.status === 'reserved').length;
-
-    const paidOrders = new Set(slice.txs.filter(t => t.status === 'completed').map(t => t.order));
-    const soldCount = Array.from(paidOrders).length;
-    const GMV = slice.txs.filter(t => t.status === 'completed').reduce((s,t)=>s+Number(t.amount||0), 0);
-
-    const orderById = new Map(slice.orders.map(o => [o.id, o]));
-    const carByVIN  = new Map(slice.cars.map(c => [c.VIN, c]));
-    const days = [];
-    slice.txs.forEach(t => {
-      if (t.status !== 'completed') return;
-      const ord = orderById.get(t.order);
-      const car = ord ? carByVIN.get(ord.car) : null;
-      if (!car) return;
-      const soldAt = Date.parse(t.transaction_date || '');
-      const createdAt = Date.parse(car.created_at || '');
-      if (!soldAt || !createdAt) return;
-      const diffDays = Math.max(0, Math.round((soldAt - createdAt) / (24*3600*1000)));
-      days.push(diffDays);
-    });
+    const active=slice.cars.filter(c=>c.status==='available').length;
+    const reserved=slice.cars.filter(c=>c.status==='reserved').length;
+    const paid=slice.txs.filter(t=>String(t.status).toLowerCase()==='completed');
+    const GMV=paid.reduce((s,t)=>s+Number(t.amount||0),0);
+    const soldCount=new Set(paid.map(t=>normalizeOrderId(t.order))).size;
+    const days=[]; const {carByKey,ordById}=slice._idx;
+    paid.forEach(t=>{ const o=ordById.get(normalizeOrderId(t.order)); if(!o) return; const c=carByKey.get(orderCarKey(o)); if(!c) return; const start=tsOrder(o)||tsCar(c); const end=tsTx(t); const d=daysBetween(start,end); if(d!=null) days.push(d); });
     days.sort((a,b)=>a-b);
-    const med = days.length ? (days.length%2 ? days[(days.length-1)/2] : Math.round((days[days.length/2 -1] + days[days.length/2])/2)) : null;
+    const medianDays = days.length ? (days.length%2 ? days[(days.length-1)/2] : Math.round((days[days.length/2-1]+days[days.length/2])/2)) : 0;
+    return {active,reserved,soldCount,GMV,medianDays, daysArray: days};
+  }
+  function renderKPI(k){ $('#kpiActive').textContent=k.active; $('#kpiReserved').textContent=k.reserved; $('#kpiSold').textContent=k.soldCount; $('#kpiGMV').textContent=fmtMoney(k.GMV); $('#kpiMedianDays').textContent=(k.medianDays==null?'—':k.medianDays); }
 
-    return {active, reserved, soldCount, GMV, medianDays: med};
+  function chartSalesByDay(slice){
+    const byDay=new Map();
+    slice.txs.filter(t=>String(t.status).toLowerCase()==='completed').forEach(t=>{ const d=new Date(tsTx(t)); const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); byDay.set(key,(byDay.get(key)||0)+1); });
+    const labels=Array.from(byDay.keys()).sort(); const values=labels.map(k=>byDay.get(k));
+    ensureChart('#chartSalesByDay','line',{labels,datasets:[{label:'Продаж',data:values,borderColor:palette[0],backgroundColor:palette[0]}]},optionsXY());
+    return {labels,values};
+  }
+  function chartAvgPriceByMake(slice, makeMap){
+    const sums=new Map(), counts=new Map(); const {carByKey,ordById}=slice._idx;
+    slice.txs.filter(t=>String(t.status).toLowerCase()==='completed').forEach(t=>{ const o=ordById.get(normalizeOrderId(t.order)); if(!o) return; const c=carByKey.get(orderCarKey(o)); if(!c) return; const mk=c.make; sums.set(mk,(sums.get(mk)||0)+Number(c.price||0)); counts.set(mk,(counts.get(mk)||0)+1); });
+    const ids=Array.from(counts.keys()).sort((a,b)=>(sums.get(b)/counts.get(b))-(sums.get(a)/counts.get(a)));
+    const labels=ids.map(id=>makeMap.get(id)||'—'); const values=ids.map(id=>Math.round((sums.get(id)||0)/(counts.get(id)||1)));
+    ensureChart('#chartAvgPriceByMake','bar',{labels,datasets:[{label:'Средняя цена, ₽',data:values,backgroundColor:palette[1],borderColor:palette[1]}]},optionsXY());
+    return {labels,values};
+  }
+  function chartInventoryStatuses(slice){
+    const map=new Map(); slice.cars.forEach(c=>{ const st=(c.status||'—').toString().toLowerCase(); map.set(st,(map.get(st)||0)+1); });
+    const labels=Array.from(map.keys()).map(k=>({available:'В продаже',reserved:'Резерв',sold:'Продано'}[k]||k));
+    const values=Array.from(map.values());
+    ensureChart('#chartInventoryStatuses','doughnut',{labels,datasets:[{data:values,backgroundColor:palette.slice(0,values.length)}]},optionsPie());
+    return {labels,values};
   }
 
-  function chartDataDaysToSell(slice){
-    const bins = [0,3,7,14,30,60,90];
-    const labels = ['0','1–3','4–7','8–14','15–30','31–60','61–90','90+'];
-    const counts = Array(labels.length).fill(0);
-
-    const orderById = new Map(slice.orders.map(o => [o.id, o]));
-    const carByVIN  = new Map(slice.cars.map(c => [c.VIN, c]));
-
-    slice.txs.forEach(t => {
-      if (t.status !== 'completed') return;
-      const ord = orderById.get(t.order);
-      const car = ord ? carByVIN.get(ord.car) : null;
-      if (!car) return;
-      const soldAt = Date.parse(t.transaction_date || '');
-      const createdAt = Date.parse(car.created_at || '');
-      if (!soldAt || !createdAt) return;
-      const d = Math.max(0, Math.round((soldAt - createdAt) / (24*3600*1000)));
-      let idx = bins.findIndex(b => d<=b);
-      if (idx === -1) idx = labels.length-1;
-      counts[idx] += 1;
-    });
-
-    return {labels, counts};
+  function exportCSV(rows, filename){ if(!rows||!rows.length) return; const header=Object.keys(rows[0]); const csv=[header.join(','),...rows.map(r=>header.map(k=>{const v=r[k]==null?'':String(r[k]); return /[",\\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v;}).join(','))].join('\\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
+  function buildReports(slice, raw){
+    const k=calcKPI(slice);
+    const kpiRows=[{'Активные':k.active,'Зарезервировано':k.reserved,'Продано (шт.)':k.soldCount,'GMV (₽)':Math.round(k.GMV),'Медиана дней до продажи':k.medianDays??''}];
+    const byMakeMap=new Map();
+    slice.txs.filter(t=>String(t.status).toLowerCase()==='completed').forEach(t=>{ const o=slice._idx.ordById.get(normalizeOrderId(t.order)); if(!o) return; const c=slice._idx.carByKey.get(orderCarKey(o)); if(!c) return; const mkName=raw.makeMap.get(c.make)||'—'; const acc=byMakeMap.get(mkName)||{make:mkName,sold:0,gmv:0}; acc.sold+=1; acc.gmv+=Number(t.amount||c.price||0); byMakeMap.set(mkName,acc); });
+    const byMake=Array.from(byMakeMap.values()).map(r=>({'Марка':r.make,'Продано (шт.)':r.sold,'GMV (₽)':Math.round(r.gmv),'Средний чек (₽)': r.sold?Math.round(r.gmv/r.sold):0}));
+    const orders=[]; slice.orders.forEach(o=>{ const c=slice._idx.carByKey.get(orderCarKey(o)); const tx=slice.txs.find(t=>normalizeOrderId(t.order)===normalizeOrderId(o.id??o)); orders.push({'ID заказа':normalizeOrderId(o.id??o),'VIN/ID авто':orderCarKey(o),'Марка':raw.makeMap.get(c?.make)||'—','Модель':raw.modelsById?(raw.modelsById.get(c?.model)||'—'):'—','Цена (₽)':c?.price??'','Статус заказа':(o.status||'').toString().toLowerCase(),'Дата заказа':(()=>{const t=tsOrder(o); return isNaN(t)?'':new Date(t).toLocaleString('ru-RU');})(),'Сумма транзакции (₽)':tx?.amount??'','Дата транзакции':(()=>{const t=tx?tsTx(tx):NaN; return isNaN(t)?'':new Date(t).toLocaleString('ru-RU');})()}); });
+    return {kpiRows,byMake,ordersLedger:orders};
   }
 
-  function chartDataByMake(slice){
-    const paidOrderIds = new Set(slice.txs.filter(t => t.status==='completed').map(t=>t.order));
-    const ordById = new Map(slice.orders.map(o=>[o.id,o]));
-    const carByVIN = new Map(slice.cars.map(c=>[c.VIN, c]));
-    const map = new Map();
-
-    paidOrderIds.forEach(oid => {
-      const o = ordById.get(oid);
-      if (!o) return;
-      const car = carByVIN.get(o.car);
-      if (!car) return;
-      const makeName = RAW.makeMap.get(car.make) || '—';
-      map.set(makeName, (map.get(makeName)||0)+1);
-    });
-
-    const labels = Array.from(map.keys()).sort((a,b)=>map.get(b)-map.get(a));
-    const values = labels.map(l => map.get(l));
-    return {labels, values};
+  function makeInsights(slice, raw){
+    const k = calcKPI(slice);
+    const total = slice.cars.length;
+    const paidTx = slice.txs.filter(t => String(t.status).toLowerCase()==='completed');
+    const byDay = new Map();
+    paidTx.forEach(t=>{ const d = new Date(tsTx(t)); const key = d.toISOString().slice(0,10); byDay.set(key, (byDay.get(key)||0)+1); });
+    let bestDay = '—', bestCount = 0; for (const [d,c] of byDay) if (c>bestCount){ bestDay=d; bestCount=c; }
+    const gmvByMake = new Map();
+    paidTx.forEach(t=>{ const o = slice._idx.ordById.get(normalizeOrderId(t.order)); if(!o) return; const c = slice._idx.carByKey.get(orderCarKey(o)); if(!c) return; gmvByMake.set(c.make, (gmvByMake.get(c.make)||0) + Number(t.amount||c.price||0)); });
+    const topMakes = Array.from(gmvByMake.entries()).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([mk,sum]) => (raw.makeMap.get(mk)||'—')+' — ₽'+fmtMoney(sum));
+    const invAvailable = slice.cars.filter(c=>c.status==='available').length;
+    const invReserved  = slice.cars.filter(c=>c.status==='reserved').length;
+    const invSold      = slice.cars.filter(c=>c.status==='sold').length;
+    const insights = [
+      `За период продано ${k.soldCount} авто на сумму ₽${fmtMoney(k.GMV)} (медиана ${k.medianDays} дн.).`,
+      `Лучшая дата по продажам: ${bestDay} (${bestCount}).`,
+      `Топ-3 марок по выручке: ${topMakes.join('; ')}.`,
+      `Склад: в продаже — ${invAvailable}, резерв — ${invReserved}, продано — ${invSold} из ${total}.`
+    ];
+    const conclusion = [
+      `Ускорить продажи можно, сфокусировав промо на ${topMakes[0] ? topMakes[0].split(' — ')[0] : 'ведущих марках'} и днях с наивысшим спросом.`,
+      `Проверить объявления с длительным временем до сделки: при медиане ${k.medianDays} дн. аномально «долгие» — кандидаты на репрайсинг.`,
+      `Сохранить долю запасов «available» не ниже ${Math.max(50, Math.round(invAvailable*100/Math.max(1,total)))}% для поддержания темпа GMV.`
+    ];
+    return { insights, conclusion };
   }
 
-  function chartDataFunnel(slice){
-    const totalActive = slice.cars.length;
-    const reservedCnt = slice.cars.filter(c => c.status==='reserved').length;
-    const paid = new Set(slice.txs.filter(t => t.status==='completed').map(t => t.order)).size;
-    const cancelled = slice.orders.filter(o => o.status==='cancelled').length;
-    const available = Math.max(0, totalActive - reservedCnt);
-    return {labels:['Available','Reserved','Paid','Cancelled'], values:[available, reservedCnt, paid, cancelled]};
+  async function buildAndSavePdf(slice, raw){
+    const now = new Date();
+    const fmt = (d)=> d.toLocaleString('ru-RU');
+    const f = {
+      from: $('#fFrom').value || '—',
+      to: $('#fTo').value || '—',
+      make: $('#fMake').selectedOptions[0]?.textContent || 'Все',
+      price: [$('#fPriceMin').value||'—', $('#fPriceMax').value||'—'].join('–'),
+      scope: $('#fScope').selectedOptions[0]?.textContent || 'Весь рынок',
+      seller: $('#fSeller').selectedOptions[0]?.textContent || '—'
+    };
+    const k = calcKPI(slice);
+    const reports = buildReports(slice, raw);
+    const { insights, conclusion } = makeInsights(slice, raw);
+
+    const imgSales = $('#chartSalesByDay').toDataURL('image/jpeg', 0.98);
+    const imgAvg   = $('#chartAvgPriceByMake').toDataURL('image/jpeg', 0.98);
+    const imgStat  = $('#chartInventoryStatuses').toDataURL('image/jpeg', 0.98);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'pdf-wrap';
+    wrap.innerHTML = `
+      <div class="pdf-title">
+        <div class="big">Отчёт по аналитике маркетплейса</div>
+        <div class="pdf-flex pdf-small">
+          <div class="pdf-col"><b>Период:</b> ${f.from} → ${f.to}</div>
+          <div class="pdf-col"><b>Охват:</b> ${f.scope}</div>
+          <div class="pdf-col"><b>Сгенерировано:</b> ${fmt(now)}</div>
+        </div>
+        <div class="pdf-flex pdf-small" style="margin-top:4mm;">
+          <div class="pdf-col"><b>Марка:</b> ${f.make}</div>
+          <div class="pdf-col"><b>Цена:</b> ${f.price}</div>
+          <div class="pdf-col"><b>Продавец:</b> ${f.seller}</div>
+        </div>
+        <div class="pdf-footer-note">Документ сформирован автоматически. Данные получены из API маркетплейса.</div>
+        <div class="pagebreak"></div>
+      </div>
+
+      <div class="pdf-header">
+        <h1 class="pdf-h1">1. Исходные параметры</h1>
+      </div>
+      <div class="pdf-meta">Период: ${f.from} → ${f.to}; марка: ${f.make}; цена: ${f.price}; охват: ${f.scope}; продавец: ${f.seller}</div>
+
+      <div class="pdf-section-title">2. KPI</div>
+      <div class="pdf-grid">
+        <div class="pdf-kpi"><div class="lbl">Активных объявлений</div><div class="val">${k.active}</div></div>
+        <div class="pdf-kpi"><div class="lbl">Зарезервировано</div><div class="val">${k.reserved}</div></div>
+        <div class="pdf-kpi"><div class="lbl">Продано (шт.)</div><div class="val">${k.soldCount}</div></div>
+        <div class="pdf-kpi"><div class="lbl">GMV (₽)</div><div class="val">${fmtMoney(k.GMV)}</div></div>
+        <div class="pdf-kpi"><div class="lbl">Медиана дней до продажи</div><div class="val">${k.medianDays}</div></div>
+      </div>
+
+      <div class="pagebreak"></div>
+      <div class="pdf-section-title">3. Графики</div>
+      <img class="pdf-chart" src="${imgSales}" />
+      <div class="figcaption">Рисунок 1 — Продажи по дням (количество завершённых транзакций по датам).</div>
+      <div class="pagebreak"></div>
+      <img class="pdf-chart" src="${imgAvg}"  />
+      <div class="figcaption">Рисунок 2 — Средняя цена проданных авто по маркам.</div>
+      <div class="pagebreak"></div>
+      <img class="pdf-chart" src="${imgStat}" />
+      <div class="figcaption">Рисунок 3 — Распределение объявлений по статусам (в продаже/резерв/продано).</div>
+
+      <div class="pagebreak"></div>
+      <div class="pdf-section-title">4. Аналитические наблюдения</div>
+      <ul class="pdf-small">
+        ${insights.map(i => `<li>${i}</li>`).join('')}
+      </ul>
+
+      <div class="pagebreak"></div>
+      <div class="pdf-section-title">5. Реестр заказов</div>
+      <table class="pdf-table">
+        <thead>
+          <tr>
+            <th>ID заказа</th><th>VIN/ID авто</th><th>Марка</th><th>Модель</th>
+            <th>Цена (₽)</th><th>Статус</th><th>Дата заказа</th><th>Сумма, ₽</th><th>Дата транзакции</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reports.ordersLedger.map(o => `
+            <tr>
+              <td>${o['ID заказа']||''}</td><td>${o['VIN/ID авто']||''}</td><td>${o['Марка']||''}</td><td>${o['Модель']||''}</td>
+              <td>${o['Цена (₽)']||''}</td><td>${o['Статус заказа']||''}</td><td>${o['Дата заказа']||''}</td>
+              <td>${o['Сумма транзакции (₽)']||''}</td><td>${o['Дата транзакции']||''}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+
+      <div class="pagebreak"></div>
+      <div class="pdf-section-title">6. Методика расчётов</div>
+      <ol class="pdf-small">
+        <li>GMV — сумма завершённых транзакций (status = completed) за период фильтра.</li>
+        <li>«Дни до продажи» — ceil(дата оплаты − дата заказа); если дата заказа недоступна, берётся дата создания объявления.</li>
+        <li>Статусы инвентаря: available / reserved / sold.</li>
+        <li>Данные получены из /bootstrap, /orders, /transactions.</li>
+      </ol>
+
+      <div class="pagebreak"></div>
+      <div class="pdf-section-title">7. Заключение</div>
+      <ul class="pdf-small">
+        ${conclusion.map(i => `<li>${i}</li>`).join('')}
+      </ul>
+    `;
+
+    document.body.appendChild(wrap);
+    const opt = {
+      margin:       10,
+      filename:     `analytics_${now.toISOString().slice(0,10)}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['css', 'legacy'] }
+    };
+
+    await html2pdf()
+      .set(opt)
+      .from(wrap)
+      .toPdf()
+      .get('pdf')
+      .then(function (pdf) {
+        const total = pdf.internal.getNumberOfPages();
+        pdf.setFont('helvetica', 'normal');
+        for (let i = 1; i <= total; i++) {
+          pdf.setPage(i);
+          pdf.setFontSize(9);
+          pdf.text(`Страница ${i} / ${total}`, pdf.internal.pageSize.getWidth() - 28, pdf.internal.pageSize.getHeight() - 10);
+        }
+      })
+      .save();
+
+    wrap.remove();
   }
-
-  function renderKPI(kpi){
-    kActive.textContent = kpi.active;
-    kRes.textContent    = kpi.reserved;
-    kSold.textContent   = kpi.soldCount;
-    kGMV.textContent    = fmtMoney(kpi.GMV);
-    kMed.textContent    = (kpi.medianDays==null ? '—' : kpi.medianDays);
-  }
-
-  function drawCharts(daysData, makeData, funnelData){
-    const ctx1 = document.getElementById('chartDaysToSell').getContext('2d');
-    const ctx2 = document.getElementById('chartByMake').getContext('2d');
-    const ctx3 = document.getElementById('chartFunnel').getContext('2d');
-
-    chartDays   = ensureChart(ctx1, 'bar',
-      {labels: daysData.labels, datasets:[{label:'Штук', data: daysData.counts}]},
-      chartOpts()
-    );
-
-    chartByMake = ensureChart(ctx2, 'bar',
-      {labels: makeData.labels, datasets:[{label:'Штук', data: makeData.values}]},
-      chartOpts()
-    );
-
-    chartFunnel= ensureChart(ctx3, 'bar',
-      {labels: funnelData.labels, datasets:[{label:'Количество', data: funnelData.values}]},
-      chartOpts()
-    );
-  }
-
-  function renderTopSellers(slice){
-    const tbody = document.getElementById('tblTopSellers');
-    const ordById = new Map(slice.orders.map(o=>[o.id,o]));
-    const carByVIN= new Map(slice.cars.map(c=>[c.VIN,c]));
-
-    const stat = new Map(); // sellerId -> {name, sold, gmv}
-    slice.txs.forEach(t => {
-      if (t.status !== 'completed') return;
-      const o = ordById.get(t.order); if (!o) return;
-      const c = carByVIN.get(o.car);  if (!c) return;
-      const sid = c.seller;
-      const name = RAW.sellerMap.get(sid) || `Пользователь #${sid}`;
-      const prev = stat.get(sid) || {name, sold:0, gmv:0};
-      prev.sold += 1;
-      prev.gmv  += Number(t.amount||0);
-      stat.set(sid, prev);
-    });
-
-    const rows = Array.from(stat.values()).sort((a,b)=>b.gmv - a.gmv);
-    tbody.innerHTML = rows.length ? rows.map(r => {
-      const avg = r.sold ? Math.round(r.gmv / r.sold) : 0;
-      return `<tr>
-        <td>${r.name}</td>
-        <td>${r.sold}</td>
-        <td>${fmtMoney(r.gmv)}</td>
-        <td>${fmtMoney(avg)}</td>
-      </tr>`;
-    }).join('') : `<tr><td colspan="4" class="text-secondary">Нет данных</td></tr>`;
-  }
-
-  // Экспорт CSV
-  function exportCSV(rows, filename='report.csv'){
-    if (!rows || !rows.length) { alert('Нет данных для экспорта'); return; }
-    const header = Object.keys(rows[0]);
-    const csv = [
-      header.join(','),
-      ...rows.map(r => header.map(k => {
-        const v = r[k]==null ? '' : String(r[k]);
-        return (v.includes(',')||v.includes('"')||v.includes('\n')) ? `"${v.replace(/"/g,'""')}"` : v;
-      }).join(','))
-    ].join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  btnCsv.addEventListener('click', () => {
-    const KPI = window.__KPI__;
-    if (!KPI) return;
-
-    const kpiRows = [{
-      'Активные': KPI.active,
-      'Зарезервировано': KPI.reserved,
-      'Продано (шт.)': KPI.soldCount,
-      'GMV (₽)': Math.round(KPI.GMV),
-      'Медиана дней до продажи': KPI.medianDays==null ? '' : KPI.medianDays
-    }];
-    exportCSV(kpiRows, 'kpi.csv');
-
-    const byMake = chartByMake?.data?.labels?.map((mk, i)=>({
-      'Марка': mk, 'Продано (шт.)': chartByMake.data.datasets[0].data[i]
-    })) || [];
-    if (byMake.length) exportCSV(byMake, 'sales_by_make.csv');
-
-    const rows = Array.from(document.querySelectorAll('#tblTopSellers tr')).map(tr => {
-      const tds = tr.querySelectorAll('td'); if (tds.length<4) return null;
-      return {'Продавец': tds[0].innerText, 'Продано (шт.)': tds[1].innerText, 'GMV (₽)': tds[2].innerText, 'Средний чек (₽)': tds[3].innerText};
-    }).filter(Boolean);
-    if (rows.length) exportCSV(rows, 'top_sellers.csv');
-  });
-
-  function saveCanvasPng(canvas, name){
-    const url = canvas.toDataURL('image/png');
-    const a = document.createElement('a'); a.href=url; a.download=name; a.click();
-  }
-  btnPng.addEventListener('click', () => {
-    saveCanvasPng(document.getElementById('chartDaysToSell'), 'days_to_sell.png');
-    saveCanvasPng(document.getElementById('chartByMake'), 'sales_by_make.png');
-    saveCanvasPng(document.getElementById('chartFunnel'), 'funnel.png');
-  });
-
-  async function applyAndRender(){
-    const slice = applyFilters();
-    const kpi = calcKPI(slice);
-
-    renderKPI(kpi);
-    drawCharts(
-      chartDataDaysToSell(slice),
-      chartDataByMake(slice),
-      chartDataFunnel(slice)
-    );
-    renderTopSellers(slice);
-
-    window.__SLICE__ = slice;
-    window.__KPI__ = kpi;
-  }
-
-  btnApply.addEventListener('click', applyAndRender);
-  btnReset.addEventListener('click', () => {
-    fFrom.value=''; fTo.value=''; fMake.value=''; fMin.value=''; fMax.value='';
-    fScope.value='market'; fSeller.value=''; fSeller.disabled=true;
-    applyAndRender();
-  });
 
   async function init(){
-    if (!TOKEN) { alert('Нужно войти'); return; }
-    window.RAW = RAW = await fetchAll();
-    fillFiltersAux();
-    await applyAndRender();
+    const fFrom=$('#fFrom'), fTo=$('#fTo'), fMake=$('#fMake'), fMin=$('#fPriceMin'), fMax=$('#fPriceMax'), fScope=$('#fScope'), fSeller=$('#fSeller');
+    setDefaultDates();
+    const base=await bootstrapLoad(); const orders=await ordersLoad(); const tx=await txLoad();
+
+    // Заполним фильтры марок и продавцов
+    fMake.innerHTML='<option value=\"\">Все</option>'+Array.from(base.makeMap).map(([id,name])=>`<option value=\"${id}\">${name}</option>`).join('');
+    fSeller.innerHTML='<option value=\"\">— выберите продавца —</option>'+
+      Array.from(base.sellerMap.entries())
+        .sort((a,b)=>a[1].localeCompare(b[1], 'ru'))
+        .map(([id,label])=>`<option value=\"${id}\">${label}</option>`).join('');
+
+    const RAW={cars:base.cars, makeMap:base.makeMap, modelsById:base.modelsById, orders, txs:tx};
+
+    function recalc(){
+      const slice=applyFilters(RAW);
+      const k=calcKPI(slice); renderKPI(k);
+      chartSalesByDay(slice); chartAvgPriceByMake(slice, RAW.makeMap); chartInventoryStatuses(slice);
+      window.__AN_DATA__={slice,RAW};
+    }
+
+    fScope.addEventListener('change', ()=>{ 
+      const isSeller = (fScope.value==='seller');
+      fSeller.disabled = !isSeller;
+      if(isSeller && !fSeller.value){ fSeller.focus(); }
+    });
+    $('#btnApply').addEventListener('click', recalc);
+    $('#btnReset').addEventListener('click', ()=>{ setDefaultDates(); fMake.value=''; fMin.value=''; fMax.value=''; fScope.value='market'; fSeller.value=''; fSeller.disabled=true; recalc(); });
+    document.querySelectorAll('.dl-one').forEach(btn=>btn.addEventListener('click', (e)=>downloadCanvasPNG(e.currentTarget.getAttribute('data-dl'))));
+    document.querySelectorAll('.fs-one').forEach(btn=>btn.addEventListener('click', (e)=>{ const sel=e.currentTarget.getAttribute('data-fs'); const el=$(sel); if(el.requestFullscreen) el.requestFullscreen(); }));
+    $('#btnSaveAllPng').addEventListener('click', ()=>['#chartSalesByDay','#chartAvgPriceByMake','#chartInventoryStatuses'].forEach(downloadCanvasPNG));
+    $('#btnExportCsv').addEventListener('click', ()=>{ const d=window.__AN_DATA__; if(!d) return; const r=buildReports(d.slice, d.RAW); exportCSV(r.kpiRows,'kpi.csv'); exportCSV(r.byMake,'sales_by_make.csv'); exportCSV(r.ordersLedger,'orders_ledger.csv'); });
+    $('#btnExportPdf').addEventListener('click', async ()=>{ const d=window.__AN_DATA__; if(!d){ recalc(); } const curr=window.__AN_DATA__; await buildAndSavePdf(curr.slice, curr.RAW); });
+
+    recalc();
   }
   init();
 })();
 </script>
+
 {% endblock %}

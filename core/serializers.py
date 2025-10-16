@@ -31,21 +31,45 @@ class ModelSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CarSerializer(serializers.ModelSerializer):
-    images = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
+    # отдаем картинки как URL'ы
+    images = serializers.SerializerMethodField()
+
+    # поля продавца
+    seller_username   = serializers.CharField(source='seller.username',   read_only=True)
     seller_first_name = serializers.CharField(source='seller.first_name', read_only=True)
     seller_last_name  = serializers.CharField(source='seller.last_name',  read_only=True)
     seller_full_name  = serializers.SerializerMethodField()
 
-    def get_seller_full_name(self, obj):
-        if obj and obj.seller:
-            full = f"{obj.seller.first_name or ''} {obj.seller.last_name or ''}".strip()
-            return full or obj.seller.username
-        return ""
-
     class Meta:
         model = Car
-        fields = ('VIN','seller','make','model','year','price','status','description','created_at','images',
-                  'seller_first_name','seller_last_name','seller_full_name')
+        fields = [
+            "VIN", "make", "model", "year", "price", "status",
+            "description", "created_at",
+            "images",
+            "seller", "seller_username", "seller_first_name",
+            "seller_last_name", "seller_full_name",
+        ]
+        read_only_fields = ("seller",)
+
+    def get_images(self, obj):
+        req = self.context.get("request")
+        urls = []
+        # если префетч был — не делаем доп. запросов
+        for im in getattr(obj, "images", CarImage.objects.none()).all():
+            try:
+                url = im.image.url
+            except Exception:
+                url = settings.MEDIA_URL + str(im.image)
+            urls.append(req.build_absolute_uri(url) if req else url)
+        return urls
+
+    def get_seller_full_name(self, obj):
+        if not getattr(obj, "seller", None):
+            return ""
+        fn = (obj.seller.first_name or "").strip()
+        ln = (obj.seller.last_name  or "").strip()
+        full = (ln + " " + fn).strip()
+        return full or (obj.seller.username or "")
 
 
 class CarImageSerializer(serializers.ModelSerializer):
@@ -124,3 +148,13 @@ class BackupFileSerializer(serializers.ModelSerializer):
         model = BackupFile
         fields = ["id", "created_at", "created_by", "method", "status", "file_size", "checksum_sha256", "log"]
         read_only_fields = fields
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    # При создании принимаем VIN (slug_field='VIN'), на выходе отдаем ещё и сам объект машины
+    car = serializers.SlugRelatedField(slug_field="VIN", queryset=Car.objects.all())
+    car_obj = CarSerializer(source="car", read_only=True)
+
+    class Meta:
+        model  = Favorite
+        fields = ("id", "car", "car_obj", "created_at")
+        read_only_fields = ("id", "created_at")

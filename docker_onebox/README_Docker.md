@@ -115,12 +115,7 @@ docker run --name car-onebox `
 ### Linux/macOS (bash)
 ```bash
 docker rm -f car-onebox 2>/dev/null || true
-docker run --name car-onebox \
-  --env-file ./.env \
-  -e DB_HOST=host.docker.internal \
-  -p 8000:8000 \
-  -p 8001:8001 \
-  car-onebox:latest
+docker run --name car-onebox   --env-file ./.env   -e DB_HOST=host.docker.internal   -p 8000:8000   -p 8001:8001   car-onebox:latest
 ```
 
 > Если на Linux `host.docker.internal` недоступен — поставь вместо него IP твоего хоста, например: `-e DB_HOST=192.168.1.10`.
@@ -217,5 +212,3 @@ docker rm -f car-onebox
 - `8001` — Front (Django UI, DEV через `runserver`)
 
 ---
-
-Готово! Если нужен прод-вариант с Nginx и единым портом — добавим вторым профилем.

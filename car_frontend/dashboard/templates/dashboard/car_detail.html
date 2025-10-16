@@ -1,6 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
-{% block title %}Авто {{ vin|default:car.VIN }}{% endblock %}
+{% block title %}Авто {% if car %}{{ car.VIN }}{% else %}{{ vin }}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container py-5" style="max-width: 1000px;">
@@ -10,7 +10,6 @@
   {% else %}
     <a href="{% url 'users_dashboard' %}" class="btn btn-outline-secondary mb-3">← К объявлениям 🚗</a>
 
-    <!-- Карточка авто -->
     <div class="card border-0 shadow-lg mb-4">
       <div class="card-body">
         <h3 class="mb-1 text-body">{{ car.make_name }} {{ car.model_name }}{% if car.year %} · {{ car.year }}{% endif %}</h3>
@@ -42,6 +41,14 @@
           </button>
 
           <button id="payBtn" class="btn btn-success btn-sm" disabled>Оплатить</button>
+
+          <button id="favBtn"
+                  class="btn btn-outline-info btn-sm"
+                  data-vin="{{ car.VIN }}"
+                  {% if not me or request.session.is_admin_or_analitic %}disabled{% endif %}>
+            В избранное ★
+          </button>
+
           <div id="orderAlert" class="alert d-none py-1 px-2 mb-0 ms-0 ms-lg-2" role="alert"></div>
         </div>
 
@@ -60,7 +67,6 @@
 
         <hr class="my-4">
 
-        <!-- Рейтинг продавца -->
         <div id="sellerRatingBlock" class="mb-3">
           <div class="d-flex align-items-center gap-2 mb-1">
             <strong class="text-body">Рейтинг продавца:</strong>
@@ -92,13 +98,13 @@
               {% for rv in seller_reviews %}
                 <li class="list-group-item d-flex justify-content-between align-items-start bg-body-tertiary border text-body"
                     data-review-id="{{ rv.id }}" data-author-id="{{ rv.author }}">
-                  <div>
-                    <div class="fw-semibold">Оценка: {{ rv.rating }} / 5</div>
+                  <div class="rv-left">
+                    <div class="fw-semibold rv-rating">Оценка: {{ rv.rating }} / 5</div>
                     {% if rv.comment %}
-                      <div class="small text-secondary mt-1">{{ rv.comment }}</div>
+                      <div class="small text-secondary mt-1 rv-comment">{{ rv.comment }}</div>
                     {% endif %}
                   </div>
-                  <div class="small text-secondary ms-3">
+                  <div class="small text-secondary ms-3 rv-right">
                     {{ rv.created_at|default:"" }}
                   </div>
                 </li>
@@ -141,7 +147,6 @@
       </div>
     </div>
 
-    <!-- Фото -->
     <div class="card border-0 shadow-lg">
       <div class="card-header border-bottom">
         <strong class="text-body">Фотографии</strong>
@@ -167,7 +172,6 @@
       </div>
     </div>
 
-    <!-- Лайтбокс -->
     <div id="lightbox" aria-hidden="true">
       <button class="lb-btn lb-close" aria-label="Закрыть">✕</button>
       <button class="lb-btn lb-prev" aria-label="Предыдущее">‹</button>
@@ -181,7 +185,6 @@
   {% endif %}
 </div>
 
-<!-- Модалка оплаты -->
 <div class="modal fade" id="payModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -215,7 +218,7 @@
 </div>
 
 <style>
-  /* Лайтбокс (остаётся тёмным оверлеем в обеих темах — так и задумано) */
+  /* Лайтбокс (остаётся тёмным оверлеем в обеих темах) */
   #lightbox {
     position: fixed; inset: 0; z-index: 2000;
     display: none;
@@ -257,20 +260,19 @@
     border:1px solid rgba(255,255,255,.15);
   }
 
-  /* Фолбэк для модалки, если bootstrap.Modal недоступен (как у тебя было) */
+  /* Фолбэк для модалки, если bootstrap.Modal недоступен */
   .modal.manual-show { display: block !important; }
   .modal-backdrop.manual { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1050; }
 </style>
 
 <script>
-/* JS ИДЕНТИЧЕН: логика брони, оплаты, отзывов и лайтбокса.
-   Оставил без изменений, только убрал тёмные инлайновые стили в разметке. */
 {% autoescape off %}
 (function () {
   const API   = "http://127.0.0.1:8000/api/v1";
   const TOKEN = "{{ request.session.api_token|default:'' }}";
   const HJSON = { "Authorization": "Token " + TOKEN, "Content-Type": "application/json" };
   const IS_ADMIN_OR_ANALITIC = {{ request.session.is_admin_or_analitic|yesno:"true,false" }};
+  const ME_ID = {{ me.id|default:'null' }};
 
   const vin          = "{{ car.VIN }}";
   const orderBtn     = document.getElementById('orderBtn');
@@ -345,185 +347,6 @@
   const reviewAlert  = document.getElementById('reviewAlert');
   const sellerId     = {{ car.seller|default:'null' }};
 
-  function showReviewAlert(kind, text) {
-    if (!reviewAlert) return;
-    reviewAlert.className = `alert alert-${kind} py-1 px-2 mb-0`;
-    reviewAlert.textContent = text;
-    reviewAlert.classList.remove('d-none');
-  }
-  function clearReviewAlert() {
-    if (!reviewAlert) return;
-    reviewAlert.className = 'alert d-none py-1 px-2 mb-0';
-    reviewAlert.textContent = '';
-  }
-  async function postReview() {
-    clearReviewAlert();
-    if (!TOKEN) { showReviewAlert('warning','Войдите, чтобы оставить отзыв.'); return; }
-    if (!sellerId) { showReviewAlert('danger','Не найден продавец для этого авто.'); return; }
-    const rating = Number(ratingEl?.value || 0);
-    const comment = (commentEl?.value || '').trim();
-    if (!(rating >= 1 && rating <= 5)) { showReviewAlert('warning','Оценка должна быть от 1 до 5.'); return; }
-    try {
-      sendBtn.disabled = true;
-      const r = await fetch(`${API}/reviews/`, {
-        method: 'POST',
-        headers: HJSON,
-        body: JSON.stringify({ target: sellerId, rating, comment })
-      });
-      const data = await r.json().catch(()=>null);
-      if (!r.ok) {
-        const firstErr = (obj) => {
-          if (!obj) return null;
-          for (const k of Object.keys(obj)) {
-            const v = obj[k];
-            if (typeof v === 'string') return v;
-            if (Array.isArray(v) && v.length) return String(v[0]);
-          }
-          return null;
-        };
-        const msg = firstErr(data) || data?.detail || data?.non_field_errors || r.statusText || 'Не удалось отправить отзыв';
-        showReviewAlert('danger', Array.isArray(msg) ? msg[0] : String(msg));
-        sendBtn.disabled = false;
-        return;
-      }
-      showReviewAlert('success','Спасибо! Отзыв сохранён.');
-      setTimeout(() => location.reload(), 700);
-    } catch (e) {
-      showReviewAlert('danger', String(e));
-      sendBtn.disabled = false;
-    }
-  }
-  sendBtn?.addEventListener('click', postReview);
-
-  (function setupMyReviewHead() {
-    const meId = {{ me.id|default:'null' }};
-    if (!meId) return;
-
-    const list = document.querySelector('#reviewsList ul.list-group');
-    if (!list) return;
-
-    const myItem = Array.from(list.children).find(li => {
-      return Number(li.getAttribute('data-author-id')) === Number(meId);
-    });
-
-    if (!myItem) return;
-
-    const top = document.getElementById('myReviewTop');
-    const card = document.createElement('div');
-    card.className = 'alert alert-info d-flex justify-content-between align-items-start';
-
-    const reviewId = myItem.getAttribute('data-review-id');
-    const ratingText = myItem.querySelector('.fw-semibold')?.textContent || '';
-    const commentElIn = myItem.querySelector('.small.text-secondary.mt-1, .small.text-muted.mt-1');
-    const commentText = commentElIn ? commentElIn.textContent : '—';
-    const dateText = myItem.querySelector('.small.text-secondary.ms-3, .small.text-muted.ms-3')?.textContent || '';
-
-    card.innerHTML = `
-      <div class="me-3">
-        <div class="fw-semibold" id="myRevRating">${ratingText.replace('Оценка: ', 'Ваш отзыв — ')}</div>
-        <div class="small text-secondary mt-1" id="myRevComment">${commentText || '—'}</div>
-        <div class="small text-secondary mt-1">${dateText}</div>
-      </div>
-      <div class="d-flex gap-2">
-        <button id="btnEditMyReview" class="btn btn-sm btn-outline-secondary">Редактировать</button>
-        <button id="btnDelMyReview" class="btn btn-sm btn-outline-danger">Удалить</button>
-      </div>
-    `;
-    top.appendChild(card);
-    myItem.remove();
-
-    const btnEdit = card.querySelector('#btnEditMyReview');
-    const btnDel  = card.querySelector('#btnDelMyReview');
-    const ratingLabel  = card.querySelector('#myRevRating');
-    const commentLabel = card.querySelector('#myRevComment');
-
-    btnEdit.addEventListener('click', async () => {
-      const currentRating = (ratingLabel.textContent.match(/(\d+)\s*\/\s*5/) || [,'3'])[1];
-      const newRating = prompt('Оценка (1-5):', currentRating);
-      if (newRating === null) return;
-      const rInt = parseInt(newRating, 10);
-      if (!(rInt >= 1 && rInt <= 5)) { alert('Оценка должна быть 1–5'); return; }
-
-      const newComment = prompt('Комментарий (опционально):', commentLabel.textContent.trim() === '—' ? '' : commentLabel.textContent);
-      if (newComment === null) return;
-
-      try {
-        const resp = await fetch(`${API}/reviews/${reviewId}/`, {
-          method: 'PATCH',
-          headers: { "Authorization": "Token {{ request.session.api_token|default:'' }}",
-                     "Content-Type": "application/json" },
-          body: JSON.stringify({ rating: rInt, comment: newComment })
-        });
-        if (!resp.ok) {
-          const txt = await resp.text();
-          alert('Не удалось сохранить: ' + (txt || resp.statusText));
-          return;
-        }
-        ratingLabel.textContent = `Ваш отзыв — ${rInt} / 5`;
-        commentLabel.textContent = (newComment || '—');
-      } catch (e) {
-        alert('Ошибка: ' + e);
-      }
-    });
-
-    btnDel.addEventListener('click', async () => {
-      if (!confirm('Удалить ваш отзыв?')) return;
-      try {
-        const resp = await fetch(`${API}/reviews/${reviewId}/`, {
-          method: 'DELETE',
-          headers: { "Authorization": "Token {{ request.session.api_token|default:'' }}" }
-        });
-        if (!resp.ok) {
-          const txt = await resp.text();
-          alert('Не удалось удалить: ' + (txt || resp.statusText));
-          return;
-        }
-        card.remove();
-        location.reload();
-      } catch (e) {
-        alert('Ошибка: ' + e);
-      }
-    });
-  })();
-
-  const payModalEl   = document.getElementById('payModal');
-  const payAmountEl  = document.getElementById('payAmount');
-  const stepInit     = document.getElementById('payStepInit');
-  const stepProc     = document.getElementById('payStepProcessing');
-  const step3ds      = document.getElementById('payStep3DS');
-  const startPayBtn  = document.getElementById('startPay');
-  const confirm3dsBtn= document.getElementById('confirm3ds');
-  const cancel3dsBtn = document.getElementById('cancel3ds');
-
-  let payModal = null;
-  const hasBsModal = !!(window.bootstrap && typeof bootstrap.Modal === 'function');
-  if (hasBsModal && payModalEl) {
-    payModal = new bootstrap.Modal(payModalEl);
-  }
-  let manualBackdrop = null;
-  function openModalFallback() {
-    if (!payModalEl) return;
-    payModalEl.classList.add('manual-show', 'show');
-    payModalEl.removeAttribute('aria-hidden');
-    payModalEl.style.display = 'block';
-    manualBackdrop = document.createElement('div');
-    manualBackdrop.className = 'modal-backdrop manual';
-    document.body.appendChild(manualBackdrop);
-    document.body.classList.add('modal-open');
-  }
-  function closeModalFallback() {
-    if (!payModalEl) return;
-    payModalEl.classList.remove('manual-show', 'show');
-    payModalEl.setAttribute('aria-hidden', 'true');
-    payModalEl.style.display = 'none';
-    if (manualBackdrop) { manualBackdrop.remove(); manualBackdrop = null; }
-    document.body.classList.remove('modal-open');
-  }
-  function openPayModal() { hasBsModal ? payModal.show() : openModalFallback(); }
-  function closePayModal() { hasBsModal ? payModal.hide() : closeModalFallback(); }
-
-  let currentOrder = null;
-
   function showAlert(kind, text) {
     alertBox.className = `alert alert-${kind} py-1 px-2 mb-0`;
     alertBox.textContent = text;
@@ -532,6 +355,12 @@
   function hideAlert(){
     alertBox.className='alert d-none py-1 px-2 mb-0';
     alertBox.textContent='';
+  }
+  function showReviewAlert(kind, text) {
+    reviewAlert.className = `alert alert-${kind} py-1 px-2 mb-0`;
+    reviewAlert.textContent = text;
+    reviewAlert.classList.remove('d-none');
+    setTimeout(() => reviewAlert.classList.add('d-none'), 3000);
   }
 
   function setStatusReservedUI() {
@@ -566,6 +395,8 @@
     if (!r.ok) throw new Error((data && (data.detail || data.error)) || `HTTP ${r.status}`);
     return data;
   }
+
+  let currentOrder = null;
 
   async function fetchMyPendingOrder() {
     if (!TOKEN) return null;
@@ -614,10 +445,49 @@
   });
 
   function resetPayModal() {
+    const stepInit     = document.getElementById('payStepInit');
+    const stepProc     = document.getElementById('payStepProcessing');
+    const step3ds      = document.getElementById('payStep3DS');
     stepInit.classList.remove('d-none');
     stepProc.classList.add('d-none');
     step3ds.classList.add('d-none');
   }
+
+  const payModalEl   = document.getElementById('payModal');
+  const payAmountEl  = document.getElementById('payAmount');
+  const stepInit     = document.getElementById('payStepInit');
+  const stepProc     = document.getElementById('payStepProcessing');
+  const step3ds      = document.getElementById('payStep3DS');
+  const startPayBtn  = document.getElementById('startPay');
+  const confirm3dsBtn= document.getElementById('confirm3ds');
+  const cancel3dsBtn = document.getElementById('cancel3ds');
+
+  let payModal = null;
+  const hasBsModal = !!(window.bootstrap && typeof bootstrap.Modal === 'function');
+  if (hasBsModal && payModalEl) {
+    payModal = new bootstrap.Modal(payModalEl);
+  }
+  let manualBackdrop = null;
+  function openModalFallback() {
+    if (!payModalEl) return;
+    payModalEl.classList.add('manual-show', 'show');
+    payModalEl.removeAttribute('aria-hidden');
+    payModalEl.style.display = 'block';
+    manualBackdrop = document.createElement('div');
+    manualBackdrop.className = 'modal-backdrop manual';
+    document.body.appendChild(manualBackdrop);
+    document.body.classList.add('modal-open');
+  }
+  function closeModalFallback() {
+    if (!payModalEl) return;
+    payModalEl.classList.remove('manual-show', 'show');
+    payModalEl.setAttribute('aria-hidden', 'true');
+    payModalEl.style.display = 'none';
+    if (manualBackdrop) { manualBackdrop.remove(); manualBackdrop = null; }
+    document.body.classList.remove('modal-open');
+  }
+  function openPayModal() { hasBsModal ? payModal.show() : openModalFallback(); }
+  function closePayModal() { hasBsModal ? payModal.hide() : closeModalFallback(); }
 
   payBtn?.addEventListener('click', async () => {
     hideAlert();
@@ -654,12 +524,16 @@
       step3ds.classList.remove('d-none');
     }, 1200);
   });
+
   cancel3dsBtn?.addEventListener('click', () => {
     (payModal ? payModal.hide() : closeModalFallback());
     showAlert('secondary', 'Оплата отменена.');
   });
 
+  let isPaying = false;
   confirm3dsBtn?.addEventListener('click', async () => {
+    if (isPaying) return;
+    isPaying = true;
     try {
       step3ds.classList.add('d-none');
       stepProc.classList.remove('d-none');
@@ -670,17 +544,27 @@
         body: JSON.stringify({})
       });
       const data = await r.json().catch(() => null);
-      if (!r.ok) throw new Error((data?.detail || data?.error || r.statusText || `HTTP ${r.status}`));
+
+      if (!r.ok) {
+        const msg = (data && (data.detail || data.error)) || r.statusText || `HTTP ${r.status}`;
+        showAlert('danger', String(msg));
+        return;
+      }
 
       (payModal ? payModal.hide() : closeModalFallback());
       showAlert('success', 'Оплата прошла. Спасибо!');
       setStatusSoldUI();
+
+      const receiptUrl = (data && data.receipt_url) ? data.receipt_url : (data && data.id ? `/receipt/${data.id}/` : null);
+      if (receiptUrl) {
+        window.location.href = receiptUrl;
+      }
     } catch (e) {
       (payModal ? payModal.hide() : closeModalFallback());
       showAlert('danger', String(e));
-      payBtn.disabled = false;
     } finally {
       stepProc.classList.add('d-none');
+      isPaying = false;
     }
   });
 
@@ -694,6 +578,303 @@
       }
     } catch (e) { console.error(e); }
   })();
+
+  const favBtn = document.getElementById('favBtn');
+  let currentFavId = null;
+
+  function setFavUI(isFav) {
+    if (!favBtn) return;
+    if (isFav) {
+      favBtn.classList.remove('btn-outline-info');
+      favBtn.classList.add('btn-info');
+      favBtn.textContent = 'В избранном ✓';
+    } else {
+      favBtn.classList.remove('btn-info');
+      favBtn.classList.add('btn-outline-info');
+      favBtn.textContent = 'В избранное ★';
+    }
+  }
+
+  async function fetchIsFav() {
+    if (!favBtn || !TOKEN) return;
+    try {
+      const r = await fetch(`${API}/favorites/?car=${encodeURIComponent(vin)}`, {
+        headers: { "Authorization": "Token " + TOKEN }
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      const list = Array.isArray(data) ? data :
+                   (Array.isArray(data.results) ? data.results : []);
+      if (list.length) {
+        currentFavId = list[0].id;
+        setFavUI(true);
+      } else {
+        currentFavId = null;
+        setFavUI(false);
+      }
+    } catch {}
+  }
+
+  async function addFav() {
+    if (!TOKEN) { showAlert('warning','Войдите, чтобы использовать избранное.'); return; }
+    try {
+      favBtn.disabled = true;
+      const r = await fetch(`${API}/favorites/`, {
+        method: 'POST',
+        headers: { "Authorization": "Token " + TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({ car: vin })
+      });
+      const data = await r.json().catch(()=>null);
+      if (!r.ok) throw new Error(data?.detail || r.statusText);
+      currentFavId = data.id;
+      setFavUI(true);
+    } catch (e) {
+      showAlert('danger', String(e));
+    } finally {
+      favBtn.disabled = false;
+    }
+  }
+
+  async function delFav() {
+    if (!TOKEN || !currentFavId) return;
+    try {
+      favBtn.disabled = true;
+      const r = await fetch(`${API}/favorites/${currentFavId}/`, {
+        method: 'DELETE',
+        headers: { "Authorization": "Token " + TOKEN }
+      });
+      if (!r.ok && r.status !== 204) {
+        const t = await r.text();
+        throw new Error(t || r.statusText);
+      }
+      currentFavId = null;
+      setFavUI(false);
+    } catch (e) {
+      showAlert('danger', String(e));
+    } finally {
+      favBtn.disabled = false;
+    }
+  }
+
+  favBtn?.addEventListener('click', () => {
+    if (!TOKEN) { showAlert('warning','Войдите, чтобы использовать избранное.'); return; }
+    if ({{ request.session.is_admin_or_analitic|yesno:"true,false" }}) {
+      showAlert('warning','Избранное недоступно для администратора/аналитика.');
+      return;
+    }
+    if (currentFavId) delFav(); else addFav();
+  });
+
+  fetchIsFav();
+
+  sendBtn?.addEventListener('click', async () => {
+    if (!TOKEN) {
+      showReviewAlert('warning', 'Войдите, чтобы оставить отзыв.');
+      return;
+    }
+    if (!sellerId) {
+      showReviewAlert('danger', 'Не найден продавец для отзыва.');
+      return;
+    }
+
+    const rating = parseInt(ratingEl.value, 10);
+    const comment = (commentEl.value || '').trim();
+
+    if (!(rating >= 1 && rating <= 5)) {
+      showReviewAlert('warning', 'Рейтинг должен быть от 1 до 5.');
+      return;
+    }
+
+    try {
+      sendBtn.disabled = true;
+
+      const r = await fetch(`${API}/reviews/`, {
+        method: 'POST',
+        headers: { "Authorization": "Token " + TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({ target: sellerId, rating, comment })
+      });
+      const data = await r.json().catch(() => null);
+
+      if (!r.ok) {
+        const msg = (data && (data.detail || data.error)) || `HTTP ${r.status}`;
+        const low = String(msg).toLowerCase();
+        if (low.includes('самому себе')) {
+          showReviewAlert('info', 'Нельзя оставить отзыв самому себе.');
+        } else if (low.includes('unique') || low.includes('уник')) {
+          showReviewAlert('secondary', 'Ты уже оставлял(а) отзыв этому продавцу.');
+        } else {
+          showReviewAlert('danger', String(msg));
+        }
+        sendBtn.disabled = false;
+        return;
+      }
+
+      const reviewsList = document.getElementById('reviewsList');
+      let ul = reviewsList.querySelector('ul.list-group');
+      if (!ul) {
+        reviewsList.innerHTML = '<ul class="list-group"></ul>';
+        ul = reviewsList.querySelector('ul.list-group');
+      }
+
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-start bg-body-tertiary border text-body';
+      li.dataset.reviewId = data?.id ?? '';
+      li.dataset.authorId = String(ME_ID || '');
+      li.innerHTML = `
+        <div class="rv-left">
+          <div class="fw-semibold rv-rating">Оценка: ${rating} / 5</div>
+          ${comment ? `<div class="small text-secondary mt-1 rv-comment"></div>` : ``}
+        </div>
+        <div class="small text-secondary ms-3 rv-right">${new Date().toLocaleDateString()}</div>
+      `;
+      if (comment) li.querySelector('.rv-comment').textContent = comment;
+      ul.prepend(li);
+
+      addOwnerControls(li);
+
+      showReviewAlert('success', 'Отзыв отправлен.');
+      sendBtn.disabled = true;
+      ratingEl.disabled = true;
+      commentEl.disabled = true;
+
+    } catch (e) {
+      showReviewAlert('danger', String(e));
+      sendBtn.disabled = false;
+    }
+  });
+
+  function addOwnerControls(li) {
+    const rid = li.dataset.reviewId;
+    const aid = parseInt(li.dataset.authorId || '0', 10);
+
+    if (!ME_ID || !rid || !aid || aid !== ME_ID) return;
+
+    if (li.querySelector('.rv-actions')) return;
+
+    const right = li.querySelector('.rv-right') || document.createElement('div');
+    right.classList.add('rv-right');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'rv-actions mt-2 d-flex gap-2 justify-content-end';
+
+    const btnEdit = document.createElement('button');
+    btnEdit.className = 'btn btn-outline-primary btn-sm';
+    btnEdit.textContent = 'Редактировать';
+    btnEdit.addEventListener('click', () => enterEditMode(li));
+
+    const btnDel = document.createElement('button');
+    btnDel.className = 'btn btn-outline-danger btn-sm';
+    btnDel.textContent = 'Удалить';
+    btnDel.addEventListener('click', () => deleteReview(li));
+
+    wrap.appendChild(btnEdit);
+    wrap.appendChild(btnDel);
+
+    right.appendChild(wrap);
+    li.appendChild(right);
+  }
+
+  function enterEditMode(li) {
+    const left = li.querySelector('.rv-left');
+    const ratingText = left.querySelector('.rv-rating')?.textContent || '';
+    const currentRating = parseInt((ratingText.match(/(\d+)/) || [])[1] || '5', 10);
+    const currentComment = left.querySelector('.rv-comment')?.textContent || '';
+
+    li._origLeftHTML = left.innerHTML;
+
+    const editor = document.createElement('div');
+    editor.innerHTML = `
+      <div class="row g-2">
+        <div class="col-12 col-md-3">
+          <select class="form-select rv-edit-rating">
+            <option value="1">1 ★</option>
+            <option value="2">2 ★★</option>
+            <option value="3">3 ★★★</option>
+            <option value="4">4 ★★★★</option>
+            <option value="5">5 ★★★★★</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-9">
+          <textarea class="form-control rv-edit-comment" rows="2" placeholder="Комментарий (опционально)"></textarea>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-2">
+        <button class="btn btn-primary btn-sm rv-save">Сохранить</button>
+        <button class="btn btn-outline-secondary btn-sm rv-cancel">Отмена</button>
+      </div>
+    `;
+    left.innerHTML = '';
+    left.appendChild(editor);
+
+    const sel = left.querySelector('.rv-edit-rating');
+    const ta  = left.querySelector('.rv-edit-comment');
+    sel.value = String(currentRating);
+    ta.value  = currentComment;
+
+    left.querySelector('.rv-cancel').addEventListener('click', () => {
+      left.innerHTML = li._origLeftHTML;
+      delete li._origLeftHTML;
+    });
+
+    left.querySelector('.rv-save').addEventListener('click', async () => {
+      const rating = parseInt(sel.value, 10);
+      const comment = ta.value.trim();
+      if (!(rating >= 1 && rating <= 5)) {
+        showReviewAlert('warning', 'Рейтинг должен быть от 1 до 5.');
+        return;
+      }
+      try {
+        const rid = li.dataset.reviewId;
+        const r = await fetch(`${API}/reviews/${rid}/`, {
+          method: 'PATCH',
+          headers: HJSON,
+          body: JSON.stringify({ rating, comment })
+        });
+        const data = await r.json().catch(()=>null);
+        if (!r.ok) {
+          const msg = (data && (data.detail || data.error)) || `HTTP ${r.status}`;
+          showReviewAlert('danger', String(msg));
+          return;
+        }
+        left.innerHTML = `
+          <div class="fw-semibold rv-rating">Оценка: ${rating} / 5</div>
+          ${comment ? `<div class="small text-secondary mt-1 rv-comment"></div>` : ''}
+        `;
+        if (comment) left.querySelector('.rv-comment').textContent = comment;
+        delete li._origLeftHTML;
+        showReviewAlert('success', 'Отзыв обновлён.');
+      } catch (e) {
+        showReviewAlert('danger', String(e));
+      }
+    });
+  }
+
+  async function deleteReview(li) {
+    if (!confirm('Удалить этот отзыв?')) return;
+    try {
+      const rid = li.dataset.reviewId;
+      const r = await fetch(`${API}/reviews/${rid}/`, {
+        method: 'DELETE',
+        headers: { "Authorization": "Token " + TOKEN }
+      });
+      if (!r.ok && r.status !== 204) {
+        const msg = await r.text();
+        throw new Error(msg || r.statusText);
+      }
+      li.remove();
+      showReviewAlert('success', 'Отзыв удалён.');
+
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        ratingEl.disabled = false;
+        commentEl.disabled = false;
+      }
+    } catch (e) {
+      showReviewAlert('danger', String(e));
+    }
+  }
+
+  document.querySelectorAll('#reviewsList li[data-review-id]').forEach(addOwnerControls);
 
 })();
 {% endautoescape %}

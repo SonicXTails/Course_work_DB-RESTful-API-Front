@@ -30,11 +30,9 @@ def _load_roles_into_session(request, token: str | None) -> set[str]:
     if me.get("is_staff") or me.get("is_superuser"):
         roles.add("admin")
 
-    # первичная оценка по строковым названиям
     is_admin    = bool(ADMIN_SYNONYMS    & roles)
     is_analitic = bool(ANALYTIC_SYNONYMS & roles)
 
-    # 2) если всё ещё не распознали (часто когда роли приходят ID), делаем fallback:
     if not (is_admin or is_analitic):
         try:
             me_id = me.get("id")
@@ -80,7 +78,6 @@ def _is_admin_or_analitic_session(request) -> bool:
     return bool(request.session.get('is_admin_or_analitic', False))
 
 def _redirect_by_role(request):
-    # Пытаемся вытащить роли из наиболее вероятных ключей
     roles_raw = (
         request.session.get("roles")
         or request.session.get("user_roles")
@@ -88,24 +85,19 @@ def _redirect_by_role(request):
         or []
     )
 
-    # Нормализуем к множеству строчных строк
     try:
         roles = {str(r).lower() for r in roles_raw}
     except Exception:
         roles = {str(roles_raw).lower()} if roles_raw else set()
 
-    # Флаги, которые может положить твой загрузчик ролей
     is_admin_flag = bool(request.session.get("is_admin") or request.session.get("is_staff"))
 
-    # Проверяем админа (несколько вариантов названий)
     if is_admin_flag or any(r in roles for r in ("admin", "administrator", "админ", "администратор")):
         return redirect("admin_dashboard")
 
-    # Проверяем аналитика
     if any(r in roles for r in ("analitic", "analyst", "аналитик")):
         return redirect("profile_analitic")
 
-    # Иначе — дефолтная пользовательская доска
     return redirect("users_dashboard")
 
 def is_admin(request) -> bool:

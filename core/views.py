@@ -13,26 +13,25 @@ from django.db import connection, transaction
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.db.models import Q
+from .models import UserRole
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly, BasePermission, IsAuthenticated
 from rest_framework import status
 from core.viewsets import AuditModelViewSet as ModelViewSet
 from django.utils import timezone
 from datetime import timedelta
-from .models import Order, Transaction, Car
-from rest_framework.permissions import BasePermission
-
+from .models import Order, Transaction, Car, Favorite
 from drf_yasg.utils import swagger_auto_schema
 
 from .serializers import (
     UserSerializer, RoleSerializer, UserRoleSerializer,
     MakeSerializer, ModelSerializer, CarSerializer, CarImageSerializer,
     OrderSerializer, TransactionSerializer, ReviewSerializer,
-    AuditLogSerializer, RegisterSerializer,
+    AuditLogSerializer, RegisterSerializer, FavoriteSerializer
 )
 from .models import (
     User, Role, UserRole, Make, Model, Car, CarImage,
@@ -54,23 +53,71 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Prefetch
 
+    
+def _has_role(user, names=("admin", "analitic", "analyst")) -> bool:
+    """
+    True, если у пользователя есть хотя бы одна роль из names,
+    или он superuser.
+    """
+    return bool(
+        user
+        and getattr(user, "is_authenticated", False)
+        and (
+            getattr(user, "is_superuser", False)
+            or UserRole.objects.filter(user=user, role__name__in=names).exists()
+        )
+    )
 
+class IsRegularUser(BasePermission):
+    """
+    Только обычный пользователь (не superuser и не с ролями admin/analitic/analyst).
+    """
+    def has_permission(self, request, view):
+        u = request.user
+        if not (u and u.is_authenticated):
+            return False
+        if getattr(u, "is_superuser", False):
+            return False
+        return not _has_role(u, names=("admin", "analitic", "analyst"))
+
+from django.db.models import Prefetch
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def bootstrap(request):
     user = request.user
 
+    # ВАЖНО: добавили seller в select_related и поля продавца в only/values
     cars_qs = (
         Car.objects
-        .select_related("make", "model")
+        .select_related("make", "model", "seller")
         .prefetch_related(Prefetch("images", queryset=CarImage.objects.only("id", "car", "image")))
-        .only("VIN", "make", "model", "year", "price", "status", "seller", "created_at")
+        .only(
+            "VIN", "make", "model", "year", "price", "status",
+            "seller_id", "seller__username", "seller__first_name", "seller__last_name",
+            "created_at",
+            "description",
+        )
     )
 
     makes  = list(Make.objects.only("id", "name").values("id", "name"))
     models = list(Model.objects.only("id", "name", "make").values("id", "name", "make"))
-    cars   = list(cars_qs.values("VIN", "make", "model", "year", "price", "status", "seller", "created_at"))
+
+    cars = list(cars_qs.values(
+        "VIN", "make", "model", "year", "price", "status", "seller", "created_at",
+        "seller__username", "seller__first_name", "seller__last_name",
+        "description",
+    ))
+
+    # Приводим ключи продавца к плоскому виду
+    for c in cars:
+        c["seller_username"]   = c.pop("seller__username", "") or ""
+        c["seller_first_name"] = c.pop("seller__first_name", "") or ""
+        c["seller_last_name"]  = c.pop("seller__last_name", "") or ""
+        c["description_clean"] = (c.get("description") or "").strip()
 
     imgs = []
     for i in CarImage.objects.only("id", "car", "image").iterator():
@@ -121,17 +168,15 @@ class UserViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         return Response({"detail": "Создание пользователей через этот endpoint запрещено"}, status=403)
 
-    @action(detail=False, methods=["get", "patch", "put"], url_path="me", permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["get", "patch", "put", "post"], url_path="me",
+            permission_classes=[IsAuthenticated])
     def me(self, request):
-        """
-        GET  /users/me/          -> вернуть себя
-        PATCH/PUT /users/me/     -> частично/полностью обновить свои данные
-        """
         user = request.user
         if request.method.lower() == "get":
             return Response(self.get_serializer(user).data)
 
-        partial = request.method.lower() == "patch"
+        # трактуем POST как PATCH
+        partial = request.method.lower() in ("patch", "post")
         serializer = self.get_serializer(user, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -279,13 +324,24 @@ class VehicleModelViewSet(ModelViewSet):
 @method_decorator(name='partial_update', decorator=swagger_auto_schema(tags=['Cars']))
 @method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Cars']))
 class CarViewSet(ModelViewSet):
-    queryset = (Car.objects
-        .select_related("make","model")
-        .prefetch_related(Prefetch("images", queryset=CarImage.objects.only("id","car","image")))
-        .only("VIN","make","model","year","price","status")
-    )
     serializer_class = CarSerializer
     permission_classes = [IsOwnerOrAdminForWrite]
+
+    def get_queryset(self):
+        qs = (Car.objects
+              .select_related("make", "model", "seller")
+              .prefetch_related(Prefetch("images",
+                                         queryset=CarImage.objects.only("id", "car", "image"))))
+        if getattr(self, 'action', None) in ("list", "retrieve"):
+            return qs.only(
+                "VIN", "make", "model", "year", "price", "status",
+                "description", "created_at",
+                "seller", "seller__username", "seller__first_name", "seller__last_name",
+            )
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(seller=self.request.user)
 
     def get_queryset(self):
         qs = (Car.objects
@@ -295,9 +351,6 @@ class CarViewSet(ModelViewSet):
         if getattr(self, 'action', None) in ("list", "retrieve"):
             return qs.only("VIN","make","model","year","price","status")
         return qs
-    
-    def perform_create(self, serializer):
-        serializer.save(seller=self.request.user)
 
     @action(
         detail=True,
@@ -386,12 +439,11 @@ class OrderViewSet(ModelViewSet):
         u = self.request.user
         qs = (Order.objects
               .select_related('car', 'buyer')
-              .only('id', 'status', 'order_date', 'total_amount', 'car', 'buyer'))
-        if not (u and u.is_authenticated):
+              .only('id', 'status', 'order_date', 'total_amount', 'car', 'buyer')
+              .order_by('-id'))
+        if not getattr(u, "is_authenticated", False):
             return qs.none()
-
-        is_admin = bool(u.is_superuser or ('admin' in getattr(u, 'roles', [])))
-        if is_admin:
+        if _has_role(u, names=("admin", "analitic", "analyst")):
             return qs
         return qs.filter(Q(buyer=u) | Q(car__seller=u))
 
@@ -532,6 +584,86 @@ class TransactionViewSet(ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [IsOwnerOrAdminForWrite]
 
+    def get_queryset(self):
+        u = self.request.user
+        qs = (Transaction.objects
+              .select_related('order', 'order__car', 'order__buyer')
+              .order_by('-id'))
+
+        if not getattr(u, "is_authenticated", False):
+            return qs.none()
+
+        try:
+            from .models import UserRole
+            is_power = (getattr(u, 'is_superuser', False) or
+                        UserRole.objects.filter(user=u, role__name__in=('admin','analitic','analyst')).exists())
+        except Exception:
+            is_power = getattr(u, 'is_superuser', False)
+
+        if is_power:
+            return qs
+
+        return qs.filter(Q(order__buyer=u) | Q(order__car__seller=u))
+
+    @action(detail=True, methods=["get"], url_path="receipt_context", permission_classes=[IsAuthenticated])
+    def receipt_context(self, request, pk=None):
+        """
+        Контекст для страницы чека.
+        Доступ: покупатель, продавец или админ — обеспечивается get_queryset().
+        """
+        tx = (self.get_queryset()
+              .select_related("order", "order__buyer", "order__car", "order__car__make", "order__car__model")
+              .get(pk=pk))
+
+        order = tx.order
+        car   = order.car
+        buyer = order.buyer
+        seller = getattr(car, "seller", None)
+
+        data = {
+            "transaction": {
+                "id": tx.id,
+                "status": getattr(tx, "status", ""),
+                "amount": float(getattr(tx, "amount", 0) or 0),
+                "transaction_date": getattr(tx, "transaction_date", None),
+            },
+            "order": {
+                "id": order.id,
+                "status": getattr(order, "status", ""),
+                "order_date": getattr(order, "order_date", None),
+                "total_amount": float(getattr(order, "total_amount", 0) or 0),
+            },
+            "car": {
+                "VIN": getattr(car, "VIN", ""),
+                "make": getattr(getattr(car, "make", None), "name", "") or str(getattr(car, "make", "")),
+                "model": getattr(getattr(car, "model", None), "name", "") or str(getattr(car, "model", "")),
+                "year": getattr(car, "year", None),
+            },
+            "buyer": {
+                "id": buyer.id,
+                "username": buyer.username,
+                "first_name": buyer.first_name,
+                "last_name": buyer.last_name,
+                "email": buyer.email,
+            },
+            "seller": {
+                "id": getattr(seller, "id", None),
+                "username": getattr(seller, "username", ""),
+                "first_name": getattr(seller, "first_name", ""),
+                "last_name": getattr(seller, "last_name", ""),
+            },
+            "company": {
+                "name": "ООО «Автоторг»",
+                "inn":  "7701234567",
+                "address": "г. Москва, ул. Примерная, 1",
+                "phone": "+7 (495) 000-00-00",
+            }
+        }
+        return Response(data)
+
+        return qs.filter(Q(order__buyer=u) | Q(order__car__seller=u))
+
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -671,16 +803,54 @@ class MakeViewSet(ModelViewSet):
         except (InvalidOperation, TypeError):
             return Response({"detail": "percent должен быть числом"}, status=400)
 
+        # (опционально) ограничить диапазон
+        if percent < Decimal("-95") or percent > Decimal("1000"):
+            return Response({"detail": "percent вне допустимого диапазона"}, status=400)
+
         with transaction.atomic():
             with connection.cursor() as cur:
-                cur.execute("""
-                    SELECT COUNT(*)
-                    FROM core_car
-                    WHERE make_id = %s
-                      AND status IN ('available','reserved')
-                """, [int(pk)])
-                affected = int(cur.fetchone()[0])
+                # Реальный апдейт с округлением до 2 знаков
+                cur.execute(
+                    """
+                    UPDATE core_car
+                       SET price = ROUND((price * (1 + %s/100.0))::numeric, 2)
+                     WHERE make_id = %s
+                    """,
+                    [percent, int(pk)],
+                )
+                affected = cur.rowcount  # фактически изменённые строки
 
-                cur.execute("CALL sp_bulk_reprice(%s, %s)", [int(pk), percent])
+        return Response({"status": "ok", "affected": affected, "percent": float(percent)}, status=200)
+    
+@method_decorator(name='list',           decorator=swagger_auto_schema(tags=['Favorites']))
+@method_decorator(name='retrieve',       decorator=swagger_auto_schema(tags=['Favorites']))
+@method_decorator(name='create',         decorator=swagger_auto_schema(tags=['Favorites']))
+@method_decorator(name='destroy',        decorator=swagger_auto_schema(tags=['Favorites']))
+class FavoriteViewSet(ModelViewSet):
+    """
+    /api/v1/favorites/
+    - GET    -> список избранного текущего пользователя (можно фильтровать по car: ?car=<VIN>)
+    - POST   -> { "car": "<VIN>" }
+    - DELETE -> /favorites/{id}/
+    """
+    queryset = (Favorite.objects
+                .select_related("car", "car__make", "car__model")
+                .order_by("-created_at"))
+    serializer_class = FavoriteSerializer
 
-        return Response({"affected": affected, "percent": float(percent)}, status=200)
+    def get_permissions(self):
+        # читать могут все аутентифицированные; добавлять/удалять — только обычные пользователи
+        if self.action in ("create", "destroy"):
+            return [IsRegularUser()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(user=self.request.user)
+        vin = self.request.query_params.get("car")
+        if vin:
+            qs = qs.filter(car__pk=vin)
+        return qs
+
+    def perform_create(self, serializer):
+        # защита от дублей — unique_together
+        serializer.save(user=self.request.user)

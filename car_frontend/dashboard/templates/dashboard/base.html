@@ -123,7 +123,7 @@
                     </li>
                     <li class="nav-item me-2">
                       {% if not request.session.is_admin and not request.session.is_analitic %}
-                        <a class="nav-link" href="{% url 'orders' %}">Мои заказы</a>
+                        <a class="btn btn-outline-light btn-sm" href="{% url 'orders' %}">Мои заказы</a>
                       {% endif %}
                     </li>
                     <li class="nav-item me-2">

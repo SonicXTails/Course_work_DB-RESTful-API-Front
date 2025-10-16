@@ -30,7 +30,7 @@ class BackupViewSet(ModelViewSet):
     queryset = BackupFile.objects.all()
     serializer_class = BackupFileSerializer
     permission_classes = [IsAdminUser]
-    http_method_names = ["get", "post", "head", "options"]  # put/patch больше не нужны
+    http_method_names = ["get", "post", "head", "options"]
 
     def create(self, request, *args, **kwargs):
         b = create_sql_backup(initiator=request.user if request.user.is_authenticated else None)
@@ -46,7 +46,6 @@ class BackupViewSet(ModelViewSet):
         fname = os.path.basename(b.file_path)
         return FileResponse(open(b.file_path, "rb"), as_attachment=True, filename=fname)
     
-    # >>> НОВОЕ: настройки бэкапов (просмотр/сохранение)
     @action(detail=False, methods=["get", "put", "post"], url_path="config")
     def config(self, request):
         from django.conf import settings
@@ -86,7 +85,6 @@ class BackupViewSet(ModelViewSet):
             cfg.retention_days = data["retention_days"]
         cfg.save()
 
-        # Для текущего процесса всё равно обновим env (на всякий случай)
         os.environ["ENABLE_BACKUPS_SCHEDULER"] = "1" if cfg.scheduler_enabled else "0"
         os.environ["BACKUPS_CRON"] = cfg.cron
         os.environ["BACKUPS_RETENTION_DAYS"] = str(cfg.retention_days)

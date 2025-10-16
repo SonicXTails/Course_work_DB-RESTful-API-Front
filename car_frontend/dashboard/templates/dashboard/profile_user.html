@@ -1,6 +1,7 @@
 {% extends "dashboard/base.html" %}
 {% load static humanize %}
 {% block title %}Профиль{% endblock %}
+{% block flash_messages %}{% endblock %}
 
 {% block content %}
 <div class="container py-5" style="max-width: 860px;">
@@ -13,11 +14,7 @@
     </button>
   </div>
 
-  {% if messages %}
-    {% for m in messages %}
-      <div class="alert alert-{{ m.tags|default:'info' }} mb-3" role="alert">{{ m }}</div>
-    {% endfor %}
-  {% endif %}
+  <hr class="my-5">
 
   <div class="card border-0 shadow" style="background:#1f2a36;color:#e9ecef;">
     <div class="card-header" style="background:#243141;border-bottom:1px solid #2f3c4e;">
@@ -124,6 +121,11 @@
     <div class="alert alert-secondary">У тебя пока нет объявлений. Создай первое 👆</div>
   {% endif %}
 
+  <hr class="my-5">
+
+  <h4 class="mb-3">Избранное</h4>
+  <div id="favEmpty" class="alert alert-secondary d-none">У тебя пока нет избранных авто.</div>
+  <div class="list-group" id="favList"></div>
 </div>
 
 <div class="modal fade" id="createCarModal" tabindex="-1" aria-hidden="true">
@@ -235,13 +237,11 @@
   #photosPreview .thumb { width:96px;text-align:center;border:1px solid #2b3a4a;border-radius:.5rem;padding:.25rem;background:#18222f; }
   #photosPreview img { width:90px;height:90px;object-fit:cover;border-radius:.5rem; }
 
-  /* Контрастное выделение текста на тёмном фоне */
   :root{
-    --selection-bg: #4c8bf5;   /* фон выделения */
-    --selection-fg: #0b1422;   /* цвет текста на выделении */
+    --selection-bg: #4c8bf5;
+    --selection-fg: #0b1422;
   }
 
-  /* обычный текст */
   ::selection {
     background: var(--selection-bg);
     color: var(--selection-fg);
@@ -251,7 +251,6 @@
     color: var(--selection-fg);
   }
 
-  /* текст внутри полей ввода/textarea */
   input::selection,
   textarea::selection {
     background: var(--selection-bg);
@@ -263,10 +262,8 @@
     color: #ffffff;
   }
 
-  /* немножко улучшим подсказки под инпутами, чтобы не бледнели */
   .form-text { color:#a9b7c6; }
 
-  /* чтобы фокус полей был виден на тёмном фоне */
   input.form-control:focus,
   textarea.form-control:focus,
   select.form-select:focus {
@@ -274,19 +271,16 @@
     box-shadow: 0 0 0 .2rem rgba(76,139,245,.25);
     outline: 0;
   }
-
 </style>
 
 <script>
 (function () {
-  // ====== общие ======
   const API = "http://127.0.0.1:8000/api/v1";
   const TOKEN = "{{ request.session.api_token|default:'' }}";
   if (!TOKEN) console.warn("Нет API токена в сессии");
   const H_JSON = { "Authorization": "Token " + TOKEN, "Content-Type": "application/json" };
   const H_AUTH = { "Authorization": "Token " + TOKEN };
 
-  // ====== профиль: дизабл «Сохранить», пока нет изменений ======
   const pf = document.getElementById('profileForm');
   const saveBtn = document.getElementById('saveBtn');
   if (pf && saveBtn) {
@@ -306,14 +300,12 @@
     toggle();
   }
 
-  // ====== СОЗДАНИЕ ======
   const modalCreate   = document.getElementById('createCarModal');
   const createForm    = document.getElementById('carCreateForm');
   const createAlert   = document.getElementById('carFormAlert');
   const photosInput   = document.getElementById('carPhotos');
   const photosPreview = document.getElementById('photosPreview');
 
-  // элементы (инпуты + даталисты)
   const makeInput  = createForm?.elements['make_name'];
   const modelInput = createForm?.elements['model_name'];
   const makesDL    = document.getElementById('makesList');
@@ -328,7 +320,6 @@
   }
   function clearCreateAlert(){ createAlert.className='alert d-none'; createAlert.textContent=''; }
 
-  // кэши справочников
   let MAKES = [];
   let MODELS = [];
   let selectedMakeId = null;
@@ -348,7 +339,7 @@
   function fillModelsDatalist(makeId) {
     if (!modelsDL) return;
     modelsDL.innerHTML = '';
-    if (!makeId) return; // марка не распознана — подсказок нет, но ввод разрешён
+    if (!makeId) return;
     for (const md of MODELS.filter(x => String(x.make) === String(makeId))) {
       const opt = document.createElement('option');
       opt.value = md.name;
@@ -422,7 +413,7 @@
       fillMakesDatalist();
 
       selectedMakeId = null;
-      if (modelInput) { modelInput.value = ''; } // НЕ блокируем поле
+      if (modelInput) { modelInput.value = ''; }
       if (modelsDL) modelsDL.innerHTML = '';
 
       if (makeInput) {
@@ -437,7 +428,6 @@
       if (modelInput) {
         modelInput.onfocus = null;
         modelInput.addEventListener('focus', () => {
-          // если марка распознана — покажем подсказки; иначе оставить пусто
           fillModelsDatalist(selectedMakeId);
         });
       }
@@ -486,7 +476,6 @@
     if (!modelName)  return alertCreate('warning','Укажи модель');
 
     try {
-      // даже если марка/модель новые — создадим их
       const makeId  = await ensureMakeId(makeName);
       const modelId = await ensureModelId(modelName, makeId);
 
@@ -507,7 +496,7 @@
       try { await uploadPhotos(vin, Array.from(photosInput?.files || [])); }
       catch (err) { alertCreate('warning', `Создано, но фото не загрузились: ${String(err)}`); }
 
-      alertCreate('success', `Объявление создано (VIN ${vin})`);
+      alertCreate('success', 'Объявление создано (VIN ' + vin + ')');
       createForm.reset(); if (photosPreview) photosPreview.innerHTML='';
       selectedMakeId = null; if (modelsDL) modelsDL.innerHTML='';
       setTimeout(() => location.reload(), 600);
@@ -516,7 +505,6 @@
     }
   });
 
-  // ====== РЕДАКТИРОВАНИЕ / УДАЛЕНИЕ / ОТМЕНА ЗАКАЗА ======
   const list = document.getElementById('myCarsList');
 
   list?.addEventListener('click', async (e) => {
@@ -540,7 +528,6 @@
       return;
     }
 
-    // Отмена заказа без формы (клиентская)
     if (e.target.closest('.seller-cancel')) {
       const vin = row.dataset.vin;
       try {
@@ -617,7 +604,6 @@
     }
   });
 
-  // Поиск pending-ордера по VIN
   async function findPendingOrderIdByVin(vin) {
     const tryUrls = [
       `${API}/orders/?car=${encodeURIComponent(vin)}&status=pending`,
@@ -653,7 +639,134 @@
     return null;
   }
 
+  const favList  = document.getElementById('favList');
+  const favEmpty = document.getElementById('favEmpty');
+
+  function fmtPrice(n) {
+    try {
+      const i = parseInt(String(n), 10);
+      return isNaN(i) ? (n ?? '—') : String(i).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    } catch { return n ?? '—'; }
+  }
+
+  let MAKE_MAP = null;
+  let MODEL_MAP = null;
+
+  async function ensureCatalogLoadedForFav() {
+    if (MAKE_MAP && MODEL_MAP) return;
+    try {
+      const [mkRes, mdRes] = await Promise.all([
+        fetch(`${API}/makes/`,  { headers: H_AUTH }),
+        fetch(`${API}/models/`, { headers: H_AUTH }),
+      ]);
+      const makes  = mkRes.ok ? await mkRes.json() : [];
+      const models = mdRes.ok ? await mdRes.json() : [];
+      MAKE_MAP  = Object.fromEntries((makes  || []).map(m => [String(m.id), m]));
+      MODEL_MAP = Object.fromEntries((models || []).map(m => [String(m.id), m]));
+    } catch {
+      MAKE_MAP = MAKE_MAP || {};
+      MODEL_MAP = MODEL_MAP || {};
+    }
+  }
+
+  function getMakeModelNames(c = {}) {
+    const byNameMake  = c.make_name  || c.makeName;
+    const byNameModel = c.model_name || c.modelName;
+    if (byNameMake || byNameModel) return [byNameMake || '', byNameModel || ''];
+
+    const objMake  = c.make_obj  && (c.make_obj.name  || c.make_obj.title);
+    const objModel = c.model_obj && (c.model_obj.name || c.model_obj.title);
+    if (objMake || objModel) return [objMake || '', objModel || ''];
+
+    const makeId  = c.make  != null ? String(c.make)  : null;
+    const modelId = c.model != null ? String(c.model) : null;
+    const mapMake  = makeId  && MAKE_MAP  ? MAKE_MAP[makeId]?.name  : null;
+    const mapModel = modelId && MODEL_MAP ? MODEL_MAP[modelId]?.name : null;
+    return [mapMake  || (makeId  ?? '') || '', mapModel || (modelId ?? '') || ''];
+  }
+
+  function renderFav(items) {
+    if (!favList) return;
+    if (!items.length) {
+      favList.innerHTML = '';
+      favEmpty?.classList.remove('d-none');
+      return;
+    }
+    favEmpty?.classList.add('d-none');
+
+    favList.innerHTML = items.map(it => {
+      const c = it.car_obj || {};
+      const img = (Array.isArray(c.images) && c.images.length) ? c.images[0] : "{% static 'img/default.png' %}";
+      const [makeName, modelName] = getMakeModelNames(c);
+
+      const statusBadge = (s) => {
+        s = String(s||'').toLowerCase();
+        if (s==='available')  return '<span class="badge bg-success">продаётся</span>';
+        if (s==='reserved')   return '<span class="badge bg-warning text-dark">зарезервировано</span>';
+        if (s==='sold')       return '<span class="badge bg-danger">продано</span>';
+        return '<span class="badge bg-secondary">неизвестно</span>';
+      };
+
+      const title = `${makeName || ''} ${modelName || ''}`.trim();
+
+      return `
+        <div class="list-group-item d-flex align-items-center gap-3"
+             style="background:#18222f;color:#eef3f9;border:1px solid #2b3a4a;"
+             data-fav-id="${it.id}" data-vin="${c.VIN||''}">
+          <img src="${img}" alt="img"
+               onerror="this.onerror=null;this.src='${"{% static 'img/default.png' %}"}';"
+               style="width:84px;height:56px;object-fit:cover;border-radius:.5rem;border:1px solid #2b3a4a;">
+          <div class="flex-grow-1">
+            <a class="fw-semibold text-decoration-none text-truncate d-inline-block"
+               href="/cars/${encodeURIComponent(c.VIN||'')}/"
+               style="color:#eef3f9; max-width: 420px;">
+              ${title}${c.year ? ' · ' + c.year : ''}
+            </a>
+            <div class="small text-muted">VIN: <span class="font-monospace">${c.VIN||'—'}</span></div>
+          </div>
+          <div class="text-end me-2">
+            <div class="fw-bold">${fmtPrice(c.price)} ₽</div>
+            ${statusBadge(c.status)}
+          </div>
+          <div class="d-flex gap-2">
+            <a href="/cars/${encodeURIComponent(c.VIN||'')}/" class="btn btn-sm btn-outline-light">Подробнее</a>
+            <button class="btn btn-sm btn-outline-danger fav-del">Убрать</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function loadFav() {
+    if (!TOKEN || !favList) return;
+    try {
+      const r = await fetch(`${API}/favorites/`, { headers: H_AUTH });
+      if (!r.ok) throw new Error(r.statusText);
+      const data = await r.json();
+      const items = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
+      await ensureCatalogLoadedForFav();
+      renderFav(items);
+    } catch (e) {
+      console.error('favorites load error:', e);
+      renderFav([]);
+    }
+  }
+
+  favList?.addEventListener('click', async (e) => {
+    const row = e.target.closest('.list-group-item'); if (!row) return;
+    if (e.target.closest('.fav-del')) {
+      const id = row.getAttribute('data-fav-id');
+      if (!id) return;
+      if (!confirm('Убрать из избранного?')) return;
+      try {
+        const r = await fetch(`${API}/favorites/${id}/`, { method:'DELETE', headers: H_AUTH });
+        if (r.ok || r.status === 204) row.remove();
+        if (!favList.children.length) renderFav([]);
+      } catch (err) { alert(String(err)); }
+    }
+  });
+  loadFav();
 })();
 </script>
+
 
 {% endblock %}

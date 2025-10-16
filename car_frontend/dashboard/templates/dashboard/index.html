@@ -199,14 +199,31 @@
                 <div class="car2-sub">VIN: <span class="font-monospace">{{ car.VIN }}</span></div>
 
                 <dl class="car2-meta">
-                  <div><dt>Продавец (Ф.И)</dt><dd>{{ car.seller_full_name }}</dd></div>
-                  <div><dt>Создано</dt><dd>{{ car.created_at_fmt }}</dd></div>
+                  <div>
+                    <dt>Продавец</dt>
+                    <dd>
+                      {% if car.seller_username %}
+                        {{ car.seller_username }}
+                      {% elif car.seller_last_name or car.seller_first_name %}
+                        {{ car.seller_last_name|default_if_none:'' }} {{ car.seller_first_name|default_if_none:'' }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Создано</dt>
+                    <dd>{{ car.created_at_fmt }}</dd>
+                  </div>
                 </dl>
 
-                <div class="car2-desc">
-                  {{ car.description|default:"—" }}
-                </div>
+                {% with desc=car.description_clean %}
+                  <div class="car2-desc">
+                    {% if desc %}{{ desc|linebreaksbr }}{% else %}—{% endif %}
+                  </div>
+                {% endwith %}
 
+                
                 <div class="car2-actions">
                   <a href="{% url 'car_detail' car.VIN %}" class="btn btn-outline-secondary btn-sm">Подробнее →</a>
 

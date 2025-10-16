@@ -10,7 +10,6 @@ def role_flags(request):
         getattr(getattr(request, 'user', None), 'is_staff', False) or
         getattr(getattr(request, 'user', None), 'is_superuser', False)
     )
-    # Поддержим старое имя переменной, если где-то использовалась
     return {
         'IS_ADMIN_OR_ANALITIC': is_admin_or_analitic,
         'IS_ADMIN_OR_ANALYST': is_admin_or_analitic,
